@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
+
+if command -v godot >/dev/null 2>&1; then
+  engine=(godot)
+elif command -v godot4 >/dev/null 2>&1; then
+  engine=(godot4)
+elif command -v flatpak >/dev/null 2>&1 && flatpak info org.godotengine.Godot >/dev/null 2>&1; then
+  engine=(flatpak run org.godotengine.Godot)
+else
+  echo "Install Godot 4.4 or newer, then open project.godot or rerun this script." >&2
+  exit 1
+fi
+
+case "${1:-play}" in
+  edit|--editor)
+    exec "${engine[@]}" --path "$PWD" --editor
+    ;;
+  test|--test)
+    "${engine[@]}" --headless --path "$PWD" --editor --import
+    exec "${engine[@]}" --headless --path "$PWD" --fixed-fps 60 -- --smoke-test
+    ;;
+  capture|--capture)
+    "${engine[@]}" --headless --path "$PWD" --editor --import
+    exec "${engine[@]}" --path "$PWD" --resolution 1440x900 -- --capture
+    ;;
+  play)
+    if [[ ! -d .godot/imported ]]; then
+      "${engine[@]}" --headless --path "$PWD" --editor --import
+    fi
+    exec "${engine[@]}" --path "$PWD"
+    ;;
+  *)
+    echo "Usage: ./run.sh [play|edit|test|capture]" >&2
+    exit 2
+    ;;
+esac
