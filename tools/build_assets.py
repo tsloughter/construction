@@ -31,15 +31,15 @@ def material(name, hex_color, metallic=0.0, roughness=0.55):
     bsdf.inputs['Roughness'].default_value = roughness
     return m
 
-yellow = material('Ochre enamel', 'ECA92E', 0.25, 0.35)
-light_yellow = material('Warm highlights', 'FFCD65', 0.2)
-dark = material('Graphite steel', '273338', 0.65)
-rubber = material('Track pads', '242D2D', 0.1, 0.8)
-steel = material('Brushed piston steel', 'A6BEC1', 0.8, 0.25)
-glass = material('Smoky blue glazing', '315C6D', 0.6, 0.19)
-black = material('Rubber trim', '14242A', 0.2)
-lamp = material('Work lights', 'FFF3CA', 0.1, 0.2)
-orange = material('Beacon amber', 'FF702E', 0.25, 0.25)
+yellow = material('Sunshine yellow', 'FFC637', 0.0, .65)
+light_yellow = material('Butter yellow', 'FFE68B', 0.0, .8)
+dark = material('Blueberry rubber', '344A79', 0.0, .9)
+rubber = dark
+steel = material('Sky blue hubs', '86CFEC', 0.0, .7)
+glass = material('Pool blue windows', '56BECF', 0.0, .6)
+black = material('Friendly pupils', '233A5A', 0.0, .9)
+lamp = material('Warm white', 'FFFBEF', 0.0, .9)
+orange = material('Tangerine bucket', 'FF9454', 0.0, .7)
 
 def empty(name, pos=(0,0,0), parent=None):
     o = bpy.data.objects.new(name, None)
@@ -55,7 +55,7 @@ def finish(o, name, mat, parent, bevel=0):
     if bevel:
         mod = o.modifiers.new('Machined edges', 'BEVEL')
         mod.width = bevel
-        mod.segments = 2
+        mod.segments = 4
         o.modifiers.new('Weighted normals', 'WEIGHTED_NORMAL')
     o.parent = parent
     return o
@@ -98,115 +98,78 @@ def profile(name, points, width, mat, parent):
     o.select_set(False)
     return o
 
-root = empty('Excavator')
+
+def ball(name, pos, size, mat, parent):
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=20, ring_count=12, radius=1, location=v(pos))
+    o = bpy.context.object
+    o.scale = (size[0], size[2], size[1])
+    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+    for face in o.data.polygons:
+        face.use_smooth = True
+    return finish(o, name, mat, parent)
+
+root = empty('LittleDigger')
 chassis = empty('Chassis', parent=root)
-box('Undercarriage', (0,.65,0), (2.6,.5,3.25), dark, chassis, .12)
-rod('Slew bearing', (0,.82,0), (0,1.23,0), 1.05, dark, chassis, 48)
-for x in (-1.3,1.3):
+box('Soft chassis', (0,.65,0), (2.7,.65,2.9), yellow, chassis, .25)
+for x in (-1.20,1.20):
     side = 'Left' if x < 0 else 'Right'
-    box(side+' track core', (x,.55,0), (.79,.84,3.9), rubber, chassis, .3)
-    for z in (-1.5,-.9,-.3,.3,.9,1.5):
-        rod(side+' road wheel', (x-.42,.53,z), (x+.42,.53,z), .31, dark, chassis, 16)
-        rod(side+' hub', (x-.44,.53,z), (x+.44,.53,z), .15, yellow, chassis, 12)
-    # Individual track shoes around a stadium-shaped path.
-    for i in range(42):
-        t = i/42 * (6.0 + 2*math.pi*.42)
-        if t < 3:
-            z,y,angle = -1.5+t,.98,0
-        elif t < 3+math.pi*.42:
-            a=(t-3)/.42
-            z,y,angle=1.5+.42*math.sin(a),.56+.42*math.cos(a),a
-        elif t < 6+math.pi*.42:
-            z,y,angle=1.5-(t-3-math.pi*.42),.14,0
-        else:
-            a=(t-6-math.pi*.42)/.42
-            z,y,angle=-1.5-.42*math.sin(a),.56-.42*math.cos(a),a
-        o=box(side+' tread %02d'%i,(x,y,z),(.89,.09,.18),dark,chassis,.015)
-        o.rotation_euler.x=angle
-        box(side+' track grip %02d'%i,(x,y+.055 if y>.56 else y-.055,z),(.92,.035,.055),rubber,chassis,.005)
-
-upper = empty('Upper', (0,1.15,0), root)
-box('Upper deck', (0,.2,0), (2.9,.45,3.45), yellow, upper,.14)
-box('Counterweight', (.1,.63,1.05), (2.8,.93,1.12), yellow, upper,.22)
-box('Rear bumper', (.1,.32,1.63), (2.77,.2,.15), black, upper)
-box('Engine hood', (.72,.68,.15), (1.18,.66,1.3), yellow, upper,.1)
-for i in range(7):
-    box('Engine vent %d'%i,(1.326,.69,-.27+i*.13),(.022,.28,.055),dark,upper,.003)
-box('Cab floor', (-.8,.47,-.37), (1.26,.2,1.67), dark, upper,.06)
-box('Cab glazing', (-.83,1.25,-.43), (1.13,1.46,1.47), glass, upper,.1)
-box('Cab roof', (-.83,2.03,-.43), (1.32,.17,1.72), yellow, upper,.07)
-for x in (-1.43,-.23):
-    for z in (-1.14,.31):
-        box('Cab pillar',(x,1.28,z),(.075,1.53,.09),black,upper,.015)
-    box('Cab midrail',(x,1.0,-.42),(.08,.06,1.45),black,upper,.01)
-box('Front windshield crossbar',(-.83,1.01,-1.19),(1.15,.07,.045),black,upper,.01)
-box('Windshield wiper',(-.76,1.35,-1.2),(.034,.6,.03),dark,upper,.004)
-box('Door handle',(-1.46,1.13,-.07),(.045,.08,.25),steel,upper)
-box('Entry step',(-1.52,.23,-.5),(.36,.12,.65),dark,upper)
-for z in (-.9,.12):
-    rod('Grab rail',(-1.51,.63,z),(-1.51,1.3,z),.035,yellow,upper)
-rod('Exhaust',(1.0,.94,.9),(1.0,1.6,.9),.075,black,upper)
-rod('Beacon mount',(.0,1.28,1.0),(.0,1.45,1.0),.12,dark,upper)
-rod('Amber beacon',(.0,1.45,1.0),(.0,1.68,1.0),.12,orange,upper)
-for x in (-1.25,-.4):
-    box('Headlamp housing',(x,1.93,-1.3),(.25,.2,.13),black,upper)
-    box('Headlamp lens',(x,1.93,-1.38),(.18,.12,.03),lamp,upper)
-
-boom = empty('Boom', (.35,.66,-.55), upper)
-profile('Boom casting', [(-.22,.18),(.27,.15),(.47,-1.3),(.27,-3.1),(-.13,-3.15),(.03,-1.3)], .48, yellow, boom)
-for x in (-.29,.29):
-    rod('Boom hinge',(x-.04,0,0),(x+.04,0,0),.27,dark,boom)
-    rod('Boom pin',(x-.05,0,-3.1),(x+.05,0,-3.1),.21,steel,boom)
-rod('Boom cylinder',(.0,.40,-.3),(.0,.58,-1.58),.13,dark,boom)
-rod('Boom piston',(.0,.58,-1.58),(.0,.32,-2.55),.07,steel,boom)
-for x in (-.14,.14):
-    rod('Hydraulic hose',(x,.55,-.45),(x,.57,-1.25),.028,black,boom)
-    rod('Hydraulic hose',(x,.57,-1.25),(x,.34,-2.68),.028,black,boom)
+    box(side+' soft track', (x,.55,0), (.85,1.0,3.4), dark, chassis, .40)
+    for i,z in enumerate((-1.03,0,1.03)):
+        rod(side+' wheel '+str(i), (x-.45,.55,z),(x+.45,.55,z),.35,steel,chassis,24)
+        rod(side+' wheel hub '+str(i),(x-.47,.55,z),(x+.47,.55,z),.14,lamp,chassis,20)
+upper=empty('Upper',(0,1.15,0),root)
+box('Round yellow body',(0,.35,.15),(2.8,.8,2.8),yellow,upper,.3)
+box('Plump back',(0,.68,.95),(2.7,.9,1.0),yellow,upper,.28)
+box('Cab',(-.6,1.2,-.1),(1.45,1.7,1.65),glass,upper,.24)
+box('Sunny roof',(-.6,2.07,-.1),(1.7,.23,1.95),yellow,upper,.10)
+# A friendly face on each cab window, visible from either end.
+for z in (-.95,.75):
+    for x in (-.93,-.31):
+        ball('White eye',(x,1.45,z),(.25,.29,.10),lamp,upper)
+        ball('Pupil',(x+.04,1.44,z+(-.095 if z<0 else .095)),(.10,.15,.045),black,upper)
+    for i in range(7):
+        x=-.94+i*.11
+        y=1.00+.17*((x+.61)/.33)**2
+        ball('Smile',(x,y,z+(-.04 if z<0 else .04)),(.07,.055,.025),black,upper)
+ball('Orange button',(.73,1.0,.8),(.2,.15,.2),orange,upper)
+boom=empty('Boom',(.35,.66,-.55),upper)
+box('Chunky boom',(0,.1,-1.50),(.58,.57,3.3),yellow,boom,.23)
+rod('Big boom hinge',(-.4,0,0),(.4,0,0),.31,orange,boom,24)
+rod('Blue boom joint',(-.37,0,-3.1),(.37,0,-3.1),.29,steel,boom,24)
 stick=empty('Stick',(0,0,-3.1),boom)
-profile('Dipper casting', [(-.16,.22),(.23,.16),(.26,-.75),(.12,-3.0),(-.13,-3.03),(-.24,-.6)], .36, yellow, stick)
-rod('Stick cylinder',(0,.31,-.2),(0,.41,-1.55),.11,dark,stick)
-rod('Stick piston',(0,.41,-1.55),(0,.17,-2.65),.065,steel,stick)
-rod('Bucket pin',(-.4,0,-3.0),(.4,0,-3.0),.17,dark,stick)
-bucket=empty('Bucket',(0,0,-3.0),stick)
-bucket_profile=[(.12,.18),(-.53,.2),(-.75,-.15),(-.75,-.92),(-.58,-1.17),(-.48,-1.17),(-.61,-.82),(-.6,-.18),(-.43,.04),(.12,.04)]
-profile('Bucket curved shell',bucket_profile,1.64,dark,bucket)
-side_profile=[(.15,.2),(-.52,.2),(-.76,-.15),(-.76,-.95),(-.55,-1.2),(-.23,-.82),(.13,-.15)]
-for x in (-.82,.82):
-    o=profile('Bucket cheek',side_profile,.095,yellow,bucket)
-    o.location.x=x
-    rod('Bucket boss',(x-.07,0,0),(x+.07,0,0),.21,dark,bucket)
-for x in (-.66,-.33,0,.33,.66):
-    box('Digging tooth',(x,-.58,-1.29),(.16,.13,.39),steel,bucket,.025)
-    box('Wear strip',(x,-.81,-.52),(.09,.06,.58),black,bucket,.01)
-empty('CarrySocket',(0,-.20,-.55),bucket)
-
-# Rest pose is a low, open bucket. Game IK replaces these rotations.
-boom.rotation_euler.x=math.radians(45)
+box('Chunky little arm',(0,0,-1.43),(.43,.45,3.1),yellow,stick,.19)
+bucket=empty('Bucket',(0,0,-3),stick)
+# A wide, rounded scoop, with no sharp teeth or tiny mechanical parts.
+box('Bucket floor',(0,-.62,-.48),(1.9,.25,1.45),orange,bucket,.10)
+box('Bucket back',(0,-.24,.16),(1.9,.85,.24),orange,bucket,.10)
+for x in (-.88,.88):
+    box('Bucket side',(x,-.29,-.43),(.22,.9,1.42),orange,bucket,.1)
+rod('Bucket joint',(-.6,0,0),(.6,0,0),.23,steel,bucket,24)
+empty('CarrySocket',(0,-.05,-.50),bucket)
+boom.rotation_euler.x=math.radians(52)
 stick.rotation_euler.x=math.radians(-110)
-bucket.rotation_euler.x=math.radians(65)
+bucket.rotation_euler.x=math.radians(58)
 
-bpy.ops.object.select_all(action='DESELECT')
-for o in bpy.context.scene.objects:
-    o.select_set(True)
-bpy.ops.wm.save_as_mainfile(filepath=str(ROOT/'art'/'excavator.blend'))
-bpy.ops.export_scene.gltf(filepath=str(OUT/'excavator.glb'), export_format='GLB', use_selection=True, export_apply=True, export_yup=True)
+def save_asset(stem):
+    bpy.ops.object.select_all(action='SELECT')
+    bpy.ops.wm.save_as_mainfile(filepath=str(ROOT/'art'/(stem+'.blend')))
+    bpy.ops.export_scene.gltf(filepath=str(OUT/(stem+'.glb')),export_format='GLB',use_selection=True,export_apply=True,export_yup=True)
 
-# A hand-shaped, faceted boulder; shared mesh, different scales in Godot.
+save_asset('excavator')
 bpy.ops.object.select_all(action='SELECT')
 bpy.ops.object.delete(use_global=False)
-rock_mats=[material('Granite %d'%i,c,0,.94) for i,c in enumerate(['697274','7B8280','8A9089','555F62','9CA095'])]
-bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=2,radius=.7)
+rock_mat=material('Pebble base','FFFFFF',0,.95)
+bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=2,radius=.72)
 rock=bpy.context.object
-rock.name='Boulder'
+rock.name='Pebble'
 random.seed(14)
 for vert in rock.data.vertices:
-    vert.co *= random.uniform(.83,1.13)
-    vert.co.x *= 1.08
-    vert.co.z *= .86
-for mat in rock_mats:
-    rock.data.materials.append(mat)
+    vert.co *= random.uniform(.93,1.07)
+    vert.co.z *= .82
 for face in rock.data.polygons:
-    face.material_index=random.choices(range(5),[4,5,3,1,1])[0]
-bpy.ops.wm.save_as_mainfile(filepath=str(ROOT/'art'/'boulder.blend'))
-bpy.ops.export_scene.gltf(filepath=str(OUT/'boulder.glb'),export_format='GLB',use_selection=True,export_apply=True)
-print('EARTHWORK assets built successfully.')
+    face.use_smooth=True
+rock.data.materials.append(rock_mat)
+bevel=rock.modifiers.new('Soft pebble','SUBSURF')
+bevel.levels=1
+save_asset('boulder')
+print('Little Digger toy assets built.')

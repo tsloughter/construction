@@ -1,52 +1,49 @@
 extends CharacterBody3D
 
-signal interaction(message: String)
 signal scooped
 signal dropped
 
-const BOOM_LENGTH := 3.1
-const STICK_LENGTH := 3.0
-const OPEN_ANGLE := 0.0
-const CLOSED_ANGLE := -0.63
-const DUMP_ANGLE := 1.05
 const Geo = preload("res://scripts/geometry.gd")
-
+const Play = preload("res://scripts/playground.gd")
+enum Mode { IDLE, GO, FACE, LOWER, CURL, LIFT, LOWER_DROP, TIP, FINISH_DROP }
+var mode := Mode.IDLE
 var model: Node3D
 var upper: Node3D
 var boom: Node3D
 var stick: Node3D
 var bucket: Node3D
 var socket: Node3D
-var bucket_body: AnimatableBody3D
-var held: RigidBody3D
-var candidate: RigidBody3D
-var reach := 3.9
-var lift := 1.0
-var target_reach := 3.9
-var target_lift := 1.0
-var curl := OPEN_ANGLE
-var target_curl := OPEN_ANGLE
-var drive_speed := 0.0
-var moving := false
+var held
+var candidate
+var chosen
 var busy := false
 var controls_enabled := true
-var interaction_serial := 0
-var socket_last := Vector3.ZERO
-var socket_velocity := Vector3.ZERO
-var pickup_ring: Node3D
-var track_parts: Array[Dictionary] = []
-var left_track_phase := 0.0
-var right_track_phase := 0.0
-var dump_elapsed := 0.0
+var touch_direction := Vector2.ZERO
+var drive_speed := 0.0
+var moving := false
+var reach := 2.5
+var lift := 1.7
+var curl := 0.0
+var target_reach := 2.5
+var target_lift := 1.7
+var target_curl := 0.0
+var destination := Vector3.ZERO
+var focus_point := Vector3.ZERO
+var next_job := ""
+var desired_yaw := 0.0
+var phase_time := 0.0
+var marker: Node3D
+var move_marker: Node3D
+var wheels: Array[Node3D] = []
 
 func _ready() -> void:
 	collision_layer = 2
-	collision_mask = 1 | 4
+	collision_mask = 1
 	var collider := CollisionShape3D.new()
 	var shape := BoxShape3D.new()
-	shape.size = Vector3(3.45,1.05,4.15)
+	shape.size = Vector3(3.3,1.0,3.4)
 	collider.shape = shape
-	collider.position.y = .61
+	collider.position.y = .55
 	add_child(collider)
 	model = preload("res://assets/models/excavator.glb").instantiate()
 	add_child(model)
@@ -55,205 +52,234 @@ func _ready() -> void:
 	stick = model.find_child("Stick",true,false)
 	bucket = model.find_child("Bucket",true,false)
 	socket = model.find_child("CarrySocket",true,false)
-	_make_bucket_collision()
-	_make_markings()
-	_cache_treads(model)
+	_cache_wheels(model)
+	marker = Geo.ring(get_parent(),1.08,Color("618f91"),32)
+	move_marker = Geo.ring(get_parent(),.55,Color("ffffff"),24)
+	move_marker.visible = false
 	_solve_arm()
-	socket_last = socket.global_position
-	pickup_ring = Geo.ring(get_parent(),1.05,Color("b9dfc3"))
-	pickup_ring.visible = false
-
-func _make_bucket_collision() -> void:
-	bucket_body = AnimatableBody3D.new()
-	bucket_body.name = "BucketCollision"
-	bucket_body.collision_layer = 2
-	bucket_body.collision_mask = 4
-	bucket_body.sync_to_physics = false
-	bucket.add_child(bucket_body)
-	# A hollow collision shape: floor, back, and two cheeks. The mouth stays open.
-	for entry in [
-		[Vector3(0,-.70,-.49),Vector3(1.65,.13,1.05)],
-		[Vector3(0,-.24,.13),Vector3(1.65,.7,.13)],
-		[Vector3(-.82,-.3,-.45),Vector3(.10,.67,1.05)],
-		[Vector3(.82,-.3,-.45),Vector3(.10,.67,1.05)]]:
-		var shape := CollisionShape3D.new()
-		var bounds := BoxShape3D.new()
-		bounds.size = entry[1]
-		shape.shape = bounds
-		shape.position = entry[0]
-		bucket_body.add_child(shape)
-
-func _make_markings() -> void:
-	var logo := Geo.label(upper,"EW / 240",Vector3(.4,.7,1.63),26,Color("273738"))
-	logo.pixel_size = .009
-	var badge := Geo.label(upper,"04",Vector3(1.51,.3,.65),24,Color("273738"))
-	badge.rotation.y = PI/2
-	for i in 4:
-		var stripe := Geo.box(upper,Vector3(-.7+i*.23,.42,1.65),Vector3(.11,.2,.015),Geo.material(Color("263538")))
-		stripe.rotation.z = -.4
 
 func _physics_process(delta: float) -> void:
-	var throttle := Input.get_axis("reverse","forward") if controls_enabled else 0.0
-	var steering := Input.get_axis("steer_right","steer_left") if controls_enabled else 0.0
-	var maximum_speed := 2.6 if held != null else 3.8
-	drive_speed = move_toward(drive_speed, throttle*maximum_speed, delta*3.5)
-	rotate_y(steering*delta*.68)
-	velocity.x = -global_basis.z.x*drive_speed
-	velocity.z = -global_basis.z.z*drive_speed
-	velocity.y = -1.0 if is_on_floor() else velocity.y-9.8*delta
+	var keys := Input.get_vector("left","right","up","down") if controls_enabled else Vector2.ZERO
+	var direction := keys if keys.length() > .05 else touch_direction
+	if not controls_enabled: direction = Vector2.ZERO
+	var travel := Vector3.ZERO
+	# Direction means direction on the screen. No reversing/steering distinction.
+	if direction.length() > .05 and mode in [Mode.IDLE,Mode.GO]:
+		mode = Mode.IDLE
+		next_job = ""
+		chosen = null
+		move_marker.visible = false
+		travel = Vector3(direction.x,0,direction.y).limit_length(1)
+	elif mode == Mode.GO:
+		var offset := destination-global_position
+		offset.y = 0
+		if offset.length() < .12:
+			move_marker.visible = false
+			if next_job == "":
+				mode = Mode.IDLE
+			else:
+				_begin_face()
+		else:
+			travel = offset.normalized()*minf(1,offset.length()*2)
+	if travel.length() > .01:
+		desired_yaw = atan2(-travel.x,-travel.z)
+		rotation.y = lerp_angle(rotation.y,desired_yaw,1-exp(-delta*8))
+	velocity.x = travel.x*3.0
+	velocity.z = travel.z*3.0
+	velocity.y = -1.0 if is_on_floor() else velocity.y-delta*9.8
 	move_and_slide()
-	moving = absf(drive_speed) > .1 or absf(steering) > .1
-	left_track_phase -= (drive_speed-steering*.9)*delta
-	right_track_phase -= (drive_speed+steering*.9)*delta
-	_animate_tracks()
-	if controls_enabled:
-		upper.rotation.y += Input.get_axis("slew_right","slew_left")*delta*.7
-		if not busy:
-			target_lift = clampf(target_lift+Input.get_axis("lower","raise")*delta*1.65, .88, 4.7)
-			target_reach = clampf(target_reach+Input.get_axis("retract","extend")*delta*1.65, 1.8, 5.2)
-			if Input.is_action_just_pressed("carry_pose"):
-				target_lift = 2.6
-				target_reach = 2.9
-		if Input.is_action_just_pressed("scoop"):
-			interact_bucket()
-	lift = move_toward(lift,target_lift,delta*1.8)
-	reach = move_toward(reach,target_reach,delta*1.8)
-	curl = move_toward(curl,target_curl,delta*1.9)
+	position.x = clampf(position.x,-Play.DRIVE_X,Play.DRIVE_X)
+	position.z = clampf(position.z,-Play.DRIVE_Z,Play.DRIVE_Z)
+	drive_speed = Vector2(velocity.x,velocity.z).length()
+	moving = drive_speed > .05
+	for wheel in wheels:
+		wheel.rotate_object_local(Vector3.UP,drive_speed*delta*1.3)
+	phase_time += delta
+	_step_job(delta)
+	lift = move_toward(lift,target_lift,delta*2.4)
+	reach = move_toward(reach,target_reach,delta*2.8)
+	curl = move_toward(curl,target_curl,delta*2.8)
 	_solve_arm()
-	socket_velocity = (socket.global_position-socket_last)/maxf(delta,.001)
-	socket_last = socket.global_position
 	if held != null:
 		var seat := socket.global_position
-		if target_curl == DUMP_ANGLE:
-			dump_elapsed += delta
-			var lip := bucket.global_position-upper.global_basis.z*1.38+Vector3(0,-.05,0)
-			seat = seat.lerp(lip,smoothstep(.3,.85,dump_elapsed))
-		held.global_position = held.global_position.lerp(seat, minf(delta*14,1))
-		# Keep the rock's orientation stable while secured in the bucket.
+		if mode == Mode.TIP:
+			seat = seat.lerp(_lip_position(),smoothstep(.12,.60,phase_time))
+		held.global_position = held.global_position.lerp(seat,minf(1,delta*18))
+	busy = mode not in [Mode.IDLE,Mode.GO]
 	_update_candidate()
+	if controls_enabled and Input.is_action_just_pressed("scoop"):
+		action()
+
+func _step_job(delta: float) -> void:
+	match mode:
+		Mode.FACE:
+			rotation.y = lerp_angle(rotation.y,desired_yaw,1-exp(-delta*10))
+			if absf(angle_difference(rotation.y,desired_yaw)) < .025:
+				var d := global_position.distance_to(Vector3(focus_point.x,global_position.y,focus_point.z))
+				target_reach = clampf(sqrt(maxf(.1,d*d-.35*.35))-1.05,1.7,4.9)
+				target_curl = 0
+				target_lift = maxf(.84,chosen.global_position.y+.18) if next_job == "pick" else 1.2
+				mode = Mode.LOWER if next_job == "pick" else Mode.LOWER_DROP
+		Mode.LOWER:
+			if _arm_arrived():
+				if not is_instance_valid(chosen) or chosen.global_position.distance_to(socket.global_position)>1.5:
+					mode = Mode.IDLE
+					return
+				held = chosen
+				held.attach_to_bucket()
+				target_curl = -.35
+				mode = Mode.CURL
+				phase_time = 0
+		Mode.CURL:
+			if phase_time > .42:
+				target_lift = 2.2
+				target_reach = 2.3
+				mode = Mode.LIFT
+		Mode.LIFT:
+			if _arm_arrived():
+				mode = Mode.IDLE
+				scooped.emit()
+		Mode.LOWER_DROP:
+			if _arm_arrived():
+				mode = Mode.TIP
+				target_curl = .95
+				phase_time = 0
+		Mode.TIP:
+			if phase_time > .68:
+				var rock = held
+				held = null
+				rock.global_position = _lip_position()
+				rock.release_from_bucket(-global_basis.z*.3)
+				mode = Mode.FINISH_DROP
+				phase_time = 0
+				dropped.emit()
+		Mode.FINISH_DROP:
+			if phase_time > .40:
+				target_lift = 1.7
+				target_reach = 2.5
+				target_curl = 0
+				mode = Mode.IDLE
+
+func _arm_arrived() -> bool:
+	return absf(lift-target_lift)<.04 and absf(reach-target_reach)<.04
+
+func _lip_position() -> Vector3:
+	return bucket.global_position-global_basis.z*1.35+Vector3(0,-.1,0)
 
 func _solve_arm() -> void:
-	# Analytic two-link IK. The elbow-up solution keeps the boom recognizable.
-	var y := lift - (position.y + 1.81)
-	var d := clampf(Vector2(reach,y).length(),.3,BOOM_LENGTH+STICK_LENGTH-.06)
-	var direction := atan2(y,reach)
-	var shoulder := acos(clampf((d*d+BOOM_LENGTH*BOOM_LENGTH-STICK_LENGTH*STICK_LENGTH)/(2*d*BOOM_LENGTH),-1,1))
-	var elbow := acos(clampf((d*d-BOOM_LENGTH*BOOM_LENGTH-STICK_LENGTH*STICK_LENGTH)/(2*BOOM_LENGTH*STICK_LENGTH),-1,1))
-	boom.rotation.x = direction+shoulder
-	stick.rotation.x = -elbow
-	# Level the bucket independently of both arm joints, then add its curl.
+	var y := lift-(position.y+1.81)
+	var d := clampf(Vector2(reach,y).length(),.3,6.04)
+	boom.rotation.x = atan2(y,reach)+acos(clampf((d*d+3.1*3.1-9)/(2*d*3.1),-1,1))
+	stick.rotation.x = -acos(clampf((d*d-3.1*3.1-9)/(2*3.1*3),-1,1))
 	bucket.rotation.x = curl-boom.rotation.x-stick.rotation.x
 
 func _update_candidate() -> void:
 	candidate = null
-	var nearest := 1.5
-	if held == null and not busy:
+	var nearest := INF
+	if held == null and mode == Mode.IDLE:
 		for rock in get_tree().get_nodes_in_group("boulders"):
 			if rock.carried: continue
-			var p: Vector3 = bucket.to_local(rock.global_position)
-			# Include a rock's radius: its surface can meet the teeth before its
-			# center enters the bucket. This prevents the lip pushing it out of reach.
-			if absf(p.x) < 1.08 and p.z < -.20 and p.z > -2.05 and p.y > -.95 and p.y < .35:
-				var distance: float = rock.global_position.distance_to(socket.global_position)
-				if distance < nearest and rock.linear_velocity.length() < 3:
-					candidate = rock
-					nearest = distance
-	if pickup_ring != null:
-		pickup_ring.visible = candidate != null
-		if candidate != null:
-			pickup_ring.global_position = Vector3(candidate.global_position.x,.05,candidate.global_position.z)
+			# Prefer an uncollected rock, but allow endless play with all of them.
+			var distance: float = global_position.distance_to(rock.global_position)+(30 if rock.rewarded else 0)
+			if distance<nearest:
+				candidate = rock
+				nearest = distance
+	marker.visible = candidate != null or (chosen != null and next_job == "pick" and mode != Mode.IDLE and held == null)
+	var marked = candidate if candidate != null else chosen
+	if marker.visible and is_instance_valid(marked):
+		marker.global_position = Vector3(marked.position.x,.055,marked.position.z)
+		var pulse := 1.0+.05*sin(Time.get_ticks_msec()*.004)
+		marker.scale = Vector3(pulse,1,pulse)
 
-func interact_bucket() -> void:
+func action() -> void:
 	if busy: return
-	interaction_serial += 1
-	var serial := interaction_serial
 	if held != null:
-		busy = true
-		dump_elapsed = 0.0
-		target_curl = DUMP_ANGLE
-		interaction.emit("Tipping bucket…")
-		await get_tree().create_timer(.90,false).timeout
-		if serial != interaction_serial: return
-		var rock := held
-		held = null
-		# Clear the lip before enabling dynamics to avoid an explosive overlap.
-		var out := -upper.global_basis.z
-		rock.global_position = bucket.global_position+out*1.38+Vector3(0,-.05,0)
-		rock.release_from_bucket(velocity*0.7+out*.75+Vector3(0,-.3,0))
-		interaction.emit("Boulder released. Let it settle in the marked bay.")
-		dropped.emit()
-		await get_tree().create_timer(.55,false).timeout
-		if serial != interaction_serial: return
-		target_curl = OPEN_ANGLE
-		busy = false
+		move_marker.visible = false
+		next_job = "drop"
+		mode = Mode.LOWER_DROP
+		target_lift = 1.2
+		target_reach = 2.5
+		target_curl = 0
 	elif candidate != null:
-		busy = true
-		held = candidate
-		candidate = null
-		held.attach_to_bucket()
-		target_curl = CLOSED_ANGLE
-		interaction.emit("Bucket secured. Lift the arm or press B for travel height.")
-		scooped.emit()
-		await get_tree().create_timer(.65,false).timeout
-		if serial != interaction_serial: return
-		busy = false
+		collect(candidate)
+
+func collect(rock) -> void:
+	if busy or held != null or not is_instance_valid(rock): return
+	chosen = rock
+	next_job = "pick"
+	_plan_approach(rock.global_position)
+
+func drop_at(point: Vector3) -> void:
+	if busy or held == null: return
+	next_job = "drop"
+	chosen = null
+	_plan_approach(point)
+
+func _plan_approach(point: Vector3) -> void:
+	focus_point = point
+	var away := global_position-point
+	away.y = 0
+	if away.length() < .2: away = Vector3.BACK
+	destination = _clamp_ground(point+away.normalized()*4.05)
+	if global_position.distance_to(destination)<.2:
+		_begin_face()
 	else:
-		interaction.emit("Bring the open bucket around a boulder. Use arrows to adjust the arm.")
+		mode = Mode.GO
+		move_marker.visible = true
+		move_marker.global_position = Vector3(destination.x,.06,destination.z)
+
+func _begin_face() -> void:
+	if next_job == "pick":
+		if not is_instance_valid(chosen):
+			mode = Mode.IDLE
+			return
+		focus_point = chosen.global_position
+	var offset := focus_point-global_position
+	offset.y = 0
+	desired_yaw = atan2(-offset.x,-offset.z)+atan2(.35,maxf(.5,offset.length()))
+	mode = Mode.FACE
+
+func go_to(point: Vector3) -> void:
+	if busy: return
+	destination = _clamp_ground(point)
+	next_job = ""
+	chosen = null
+	mode = Mode.GO
+	move_marker.visible = true
+	move_marker.global_position = destination+Vector3(0,.06,0)
+
+func _clamp_ground(point: Vector3) -> Vector3:
+	return Vector3(clampf(point.x,-Play.DRIVE_X,Play.DRIVE_X),0,clampf(point.z,-Play.DRIVE_Z,Play.DRIVE_Z))
+
+func cancel_movement() -> void:
+	touch_direction = Vector2.ZERO
+	if mode == Mode.GO:
+		mode = Mode.IDLE
+		move_marker.visible = false
+	velocity = Vector3.ZERO
 
 func reset_vehicle() -> void:
-	interaction_serial += 1
 	held = null
+	chosen = null
 	candidate = null
+	mode = Mode.IDLE
 	busy = false
-	global_position = Vector3.ZERO
-	global_rotation = Vector3.ZERO
-	upper.rotation = Vector3.ZERO
-	drive_speed = 0
+	next_job = ""
+	touch_direction = Vector2.ZERO
+	position = Play.START
+	rotation = Vector3(0,-.48,0)
 	velocity = Vector3.ZERO
-	reach = 3.9
-	target_reach = reach
-	lift = 1.0
+	drive_speed = 0
+	lift = 1.7
+	reach = 2.5
+	curl = 0
 	target_lift = lift
-	curl = OPEN_ANGLE
+	target_reach = reach
 	target_curl = curl
+	move_marker.visible = false
 	_solve_arm()
-	socket_last = socket.global_position
 
-func _cache_treads(node: Node) -> void:
-	# Export names retain a numeric suffix; both the shoe and grip share a phase.
-	var label := String(node.name)
-	if node is Node3D and ("tread" in label or "trackgrip" in label or "track grip" in label):
-		var index := int(label.right(2))
-		track_parts.append({"node":node,"index":index,"left":label.begins_with("Left"),"grip":"grip" in label})
-	for child in node.get_children():
-		_cache_treads(child)
-
-func _animate_tracks() -> void:
-	var circumference := 6.0+TAU*.42
-	for part in track_parts:
-		var phase: float = left_track_phase if part.left else right_track_phase
-		var t := fposmod(part.index/42.0*circumference+phase,circumference)
-		var z: float
-		var y: float
-		var angle := 0.0
-		if t < 3.0:
-			z = -1.5+t
-			y = .98
-		elif t < 3.0+PI*.42:
-			angle = (t-3.0)/.42
-			z = 1.5+.42*sin(angle)
-			y = .56+.42*cos(angle)
-		elif t < 6.0+PI*.42:
-			z = 1.5-(t-3.0-PI*.42)
-			y = .14
-			angle = PI
-		else:
-			angle = PI+(t-6.0-PI*.42)/.42
-			z = -1.5+.42*sin(angle)
-			y = .56+.42*cos(angle)
-		if part.grip:
-			y += .055*cos(angle)
-			z += .055*sin(angle)
-		part.node.position.y = y
-		part.node.position.z = z
-		part.node.rotation.x = -angle
+func _cache_wheels(node: Node) -> void:
+	if "wheel" in String(node.name) and node is Node3D:
+		wheels.append(node)
+	for child in node.get_children(): _cache_wheels(child)

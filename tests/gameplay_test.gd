@@ -9,15 +9,21 @@ func _ready() -> void:
 
 func _check(condition: bool, description: String) -> void:
 	checks += 1
-	if condition:
-		print("PASS: ", description)
+	if condition: print("PASS: ",description)
 	else:
 		failures.append(description)
-		push_error("FAIL: " + description)
+		push_error("FAIL: "+description)
 
 func _frames(count: int) -> void:
-	for i in count:
-		await get_tree().physics_frame
+	for i in count: await get_tree().physics_frame
+
+func _until(predicate: Callable, maximum: int = 900) -> bool:
+	for i in maximum:
+		if predicate.call():
+			await _frames(3)
+			return true
+		await _frames(1)
+	return false
 
 func _tap(action: String) -> void:
 	Input.action_press(action)
@@ -26,143 +32,136 @@ func _tap(action: String) -> void:
 	await _frames(2)
 
 func _run() -> void:
-	await _frames(100)
+	await _frames(90)
 	var v = game.vehicle
-	var first = game.get_node("Boulder1")
-	_check(v.upper != null and v.boom != null and v.bucket != null, "Blender hierarchy has all articulated pivots")
-	_check(v.socket.global_position.distance_to(Vector3(.35,.8,-5.0)) < .3, "IK places bucket socket at the starter boulder")
-	print("Initial bucket: ",v.bucket.global_position," socket: ",v.socket.global_position," rock: ",first.global_position)
-	_check(v.candidate == first, "Starter boulder is inside the open bucket's scoop region")
-	_check(first.global_position.y > .3 and first.global_position.y < 1.3, "Loose boulder rests on ground / bucket collision")
-	await _tap("scoop")
+	var rock = game.get_node("Pebble1")
+	var camera_start: Transform3D = game.camera.global_transform
+	_check(v.boom != null and v.bucket != null and v.socket != null,"Toy Blender model has functional arm pivots")
+	var start: Vector3 = v.position
+	Input.action_press("right")
 	await _frames(60)
-	_check(v.held == first and first.freeze and first.carried, "Space curls bucket and secures the boulder")
-	if v.held != first:
+	Input.action_release("right")
+	await _frames(4)
+	_check(v.position.x>start.x+2.5 and absf(v.position.z-start.z)<.1,"Right arrow moves right on screen without tank steering")
+	start = v.position
+	Input.action_press("up")
+	await _frames(45)
+	Input.action_release("up")
+	await _frames(4)
+	_check(v.position.z<start.z-1.8,"Up arrow moves toward the top of the sandbox")
+	_check(v.drive_speed<.01,"Releasing a direction stops the toy immediately")
+	_check(game.camera.global_transform == camera_start,"Camera stays fixed through direction changes")
+	game.reset_yard()
+	await _frames(60)
+	# Real GUI dispatch for both mouse and touch, including releases outside.
+	var mouse := InputEventMouseButton.new()
+	mouse.button_index = MOUSE_BUTTON_LEFT
+	mouse.position = game.hud.arrows.right.get_global_rect().get_center()
+	mouse.pressed = true
+	get_viewport().push_input(mouse,true)
+	await _frames(30)
+	_check(v.touch_direction.x>.9,"Mouse press activates the large direction button")
+	mouse = InputEventMouseButton.new()
+	mouse.button_index = MOUSE_BUTTON_LEFT
+	mouse.position = Vector2(700,200)
+	mouse.pressed = false
+	get_viewport().push_input(mouse,true)
+	await _frames(4)
+	_check(v.touch_direction == Vector2.ZERO,"Mouse release outside a button never sticks")
+	var touch := InputEventScreenTouch.new()
+	touch.index = 0
+	touch.position = game.hud.arrows.left.get_global_rect().get_center()
+	touch.pressed = true
+	get_viewport().push_input(touch,true)
+	await _frames(12)
+	_check(v.touch_direction.x<-.9,"Touch press activates a direction button")
+	touch = InputEventScreenTouch.new()
+	touch.index = 0
+	touch.position = Vector2(800,100)
+	touch.pressed = false
+	get_viewport().push_input(touch,true)
+	await _frames(4)
+	_check(v.touch_direction == Vector2.ZERO,"Touch release outside a button never sticks")
+	game.reset_yard()
+	await _frames(60)
+	rock = v.candidate
+	await _tap("scoop")
+	var picked := await _until(func(): return v.held == rock and v.mode == v.Mode.IDLE)
+	_check(picked,"One Space press approaches, aligns, scoops, and lifts the nearest pebble")
+	if not picked:
+		print("Pickup state: ",v.mode," machine ",v.position," rock ",rock.position," socket ",v.socket.global_position)
 		_finish()
 		return
-	await _tap("carry_pose")
-	await _frames(95)
-	_check(first.global_position.y > 1.6, "Travel pose lifts the boulder above the tracks")
-	_check(first.global_position.distance_to(v.socket.global_position) < .08, "Carried boulder stays seated in bucket")
-	var start_yaw: float = v.upper.rotation.y
-	Input.action_press("slew_left")
+	_check(rock.freeze and rock.carried and rock.position.distance_to(v.socket.global_position)<.1,"Load is stable in the automatically raised bucket")
+	Input.action_press("left")
 	await _frames(30)
-	Input.action_release("slew_left")
-	_check(v.upper.rotation.y > start_yaw+.2, "Q slews the cab and arm independently")
-	_check(first.global_position.distance_to(v.socket.global_position) < .2, "Load follows the swinging upper body")
-	Input.action_press("slew_right")
-	await _frames(30)
-	Input.action_release("slew_right")
-	var start_pos: Vector3 = v.position
-	await _drive_to(Vector3(8,0,-3.15))
-	await _turn_to(0.0)
-	await _frames(50)
-	_check(v.position.distance_to(start_pos) > 6, "WASD drives and turns a loaded excavator to the bay")
-	_check(first.global_position.distance_to(v.socket.global_position) < .12, "Load remains secured after transport")
-	print("Drop pose vehicle: ",v.position," yaw: ",v.rotation.y," bucket: ",v.bucket.global_position)
+	Input.action_release("left")
+	await _frames(8)
+	_check(rock.position.distance_to(v.socket.global_position)<.1,"Pebble stays in the scoop during automatic steering")
 	await _tap("scoop")
+	await _until(func(): return v.held == null and v.mode == v.Mode.IDLE)
+	await _frames(180)
+	_check(not rock.freeze and not rock.carried and rock.position.y<1,"One Space press drops a real physics pebble anywhere")
+	_check(game.stars == 0,"Free play drops need no goal and do not create a false reward")
+	game.reset_yard()
 	await _frames(60)
-	_check(v.held == null and not first.freeze and not first.carried, "Tipping releases a dynamic rigid body")
-	await _frames(200)
-	_check(first.global_position.y < 1.3 and first.global_position.y > .2, "Released rock falls and settles on the yard")
-	_check(first.delivered and game.delivered_count == 1, "Settled delivery counts once in the objective")
-	# Repeat through the actual controls to exercise the full three-rock objective.
-	for index in [2,3]:
-		var rock = game.get_node("Boulder%d"%index)
-		var pickup_position: Vector3 = rock.global_position+Vector3(-.35,0,5.0)
-		pickup_position.y = 0
-		await _drive_to(pickup_position)
-		await _turn_to(0.0)
-		v.target_reach = 3.9
-		v.target_lift = .90
-		await _frames(130)
-		print("Pickup ",index,": bucket ",v.bucket.global_position," rock ",rock.global_position)
-		_check(v.candidate == rock,"Boulder %d can be reached after transport"%index)
-		await _tap("scoop")
-		await _frames(60)
-		_check(v.held == rock,"Boulder %d scoops successfully"%index)
-		if v.held == null:
+	for i in 3:
+		var pebble = game.get_node("Pebble%d"%(i+1))
+		game.pointer_action(game.camera.unproject_position(pebble.global_position)+Vector2(22,0))
+		picked = await _until(func(): return v.held == pebble and v.mode == v.Mode.IDLE)
+		_check(picked,"Generous click target collects pebble %d with no arm controls"%(i+1))
+		if not picked:
+			print("Pickup state: ",v.mode," machine ",v.position," rock ",pebble.position," socket ",v.socket.global_position)
 			_finish()
 			return
-		await _tap("carry_pose")
-		await _frames(90)
-		await _drive_to(Vector3(7.0+index*.55,0,-3.15))
-		await _turn_to(0)
-		await _tap("scoop")
-		await _frames(100)
-		# Contact with an existing pile may roll a rock before it settles.
-		for step in 900:
-			if rock.delivered: break
-			await _frames(1)
-		print("Delivered ",index,": vehicle ",v.position," rock ",rock.global_position," velocity ",rock.linear_velocity)
-		_check(rock.delivered,"Boulder %d lands and settles in the bay"%index)
-	for step in 900:
-		if game.delivered_count == 3: break
-		await _frames(1)
-	_check(game.delivered_count == 3,"All three delivered rocks complete the shift")
-	var old: Vector3 = v.position
-	game.toggle_pause()
-	await get_tree().create_timer(.1,true).timeout
-	_check(get_tree().paused and v.position == old, "Pause freezes the machine")
-	game.toggle_pause()
-	game.reset_yard()
-	await _frames(100)
-	_check(game.delivered_count == 0 and not first.delivered and not first.ever_carried, "Reset clears delivered state")
-	_check(v.position.distance_to(Vector3.ZERO) < .2 and v.held == null, "Reset restores excavator and load state")
-	_check(v.candidate == first, "Reset restores a scoopable starter rock")
-	# Reset during a pending scoop invalidates its delayed callback.
+		game.pointer_action(game.camera.unproject_position(game.Play.DROP_CENTER+Vector3(0,2.35,-.3)))
+		var delivered := await _until(func(): return pebble.rewarded,1200)
+		_check(delivered,"Clicking the star carries and gently drops pebble %d into the garden"%(i+1))
+		if not delivered:
+			print("Drop state: ",v.mode," machine ",v.position," rock ",pebble.position)
+			_finish()
+			return
+		await _until(func(): return v.mode == v.Mode.IDLE)
+	_check(game.stars == 3,"Three different pebbles earn three celebration stars")
+	# Collected stars never disappear or multiply when a child replays a pebble.
+	game.pointer_action(game.camera.unproject_position(rock.global_position))
+	await _until(func(): return v.held == rock and v.mode == v.Mode.IDLE)
+	_check(game.stars == 3,"Picking a pebble up again never takes away a star")
 	await _tap("scoop")
-	game.reset_yard()
-	await _frames(100)
-	_check(v.held == null and not v.busy and not first.freeze, "Reset cancels in-flight bucket interaction safely")
-	# Empty-space scoops must never attract a distant boulder.
-	v.global_position = Vector3(15,0,14)
-	await _frames(5)
-	await _tap("scoop")
-	_check(v.held == null, "Distant boulders cannot be scooped")
-	game.reset_yard()
-	await _frames(100)
-	# Extreme reach/height requests still produce a finite arm within link limits.
-	v.target_reach = 5.2
-	v.target_lift = 4.7
+	await _until(func(): return v.mode == v.Mode.IDLE)
 	await _frames(150)
-	_check(v.bucket.global_position.is_finite() and v.boom.global_position.distance_to(v.bucket.global_position) <= 6.11, "Arm IK safely clamps unreachable extremes")
+	_check(game.stars == 3,"Repeated delivery cannot award duplicate stars")
+	game.reset_yard()
+	await _frames(60)
+	game.pointer_action(game.camera.unproject_position(game.get_node("Pebble3").position))
+	await _frames(6)
+	Input.action_press("down")
+	await _frames(8)
+	Input.action_release("down")
+	_check(v.mode == v.Mode.IDLE,"Arrow input can take over from click-to-drive")
+	game.reset_yard()
+	await _frames(60)
+	await _tap("scoop")
+	await _until(func(): return v.busy)
+	game.toggle_pause()
+	var paused_socket: Vector3 = v.socket.global_position
+	await _frames(10)
+	_check(get_tree().paused and v.socket.global_position == paused_socket,"Pause freezes an automatic scoop")
+	game.reset_yard()
+	await _frames(120)
+	_check(not get_tree().paused and not v.busy and v.held == null and not rock.freeze,"Restart safely clears a paused scoop and restores free play")
+	_check(game.stars == 0,"Restart clears the three keepsake stars")
+	rock.position = Vector3(30,-5,30)
+	await _frames(60)
+	_check(rock.position.distance_to(rock.spawn_point)<1,"A lost pebble quietly returns to the sandbox")
+	Input.action_press("right")
+	await _frames(420)
+	Input.action_release("right")
+	_check(v.position.x<=game.Play.DRIVE_X+.01,"Holding an arrow cannot drive out of the sandbox")
+	game.toggle_mute()
+	_check(game.muted and game.hud.muted,"Parent sound toggle updates audio and its picture button")
 	_finish()
 
-func _drive_to(destination: Vector3) -> void:
-	var v = game.vehicle
-	for i in 900:
-		var offset: Vector3 = destination-v.position
-		offset.y = 0
-		if offset.length() < .32: break
-		var desired := atan2(-offset.x,-offset.z)
-		var error := wrapf(desired-v.rotation.y,-PI,PI)
-		Input.action_release("steer_left")
-		Input.action_release("steer_right")
-		if absf(error) > .035:
-			Input.action_press("steer_left" if error>0 else "steer_right",clampf(absf(error)*2,0,1))
-		if absf(error) < .35:
-			Input.action_press("forward",clampf(offset.length()*.5,.15,.8))
-		else:
-			Input.action_release("forward")
-		await _frames(1)
-	Input.action_release("forward")
-	Input.action_release("steer_left")
-	Input.action_release("steer_right")
-	await _frames(50)
-
-func _turn_to(angle: float) -> void:
-	var v = game.vehicle
-	for i in 500:
-		var error := wrapf(angle-v.rotation.y,-PI,PI)
-		if absf(error)<.02: break
-		Input.action_release("steer_left")
-		Input.action_release("steer_right")
-		Input.action_press("steer_left" if error>0 else "steer_right")
-		await _frames(1)
-	Input.action_release("steer_left")
-	Input.action_release("steer_right")
-
 func _finish() -> void:
-	print("GAMEPLAY TEST: %d checks, %d failures"%[checks,failures.size()])
+	print("LITTLE DIGGER TEST: %d checks, %d failures"%[checks,failures.size()])
 	get_tree().quit(0 if failures.is_empty() else 1)

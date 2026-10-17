@@ -1,8 +1,10 @@
 extends RigidBody3D
 
-var delivered := false
+const Play = preload("res://scripts/playground.gd")
 var carried := false
 var ever_carried := false
+var rewarded := false
+var settled_in_garden := false
 var settle_time := 0.0
 var spawn_point := Vector3.ZERO
 var rock_id := 0
@@ -10,43 +12,39 @@ var size_factor := 1.0
 
 func _ready() -> void:
 	spawn_point = global_position
-	mass = 180.0 * size_factor
+	mass = 10
 	collision_layer = 4
 	collision_mask = 7
 	continuous_cd = true
-	linear_damp = .32
-	angular_damp = 1.4
+	linear_damp = 1.4
+	angular_damp = 2.6
 	var physics := PhysicsMaterial.new()
-	physics.friction = .86
-	physics.bounce = .08
+	physics.friction = .9
+	physics.bounce = .12
 	physics_material_override = physics
 	var art := preload("res://assets/models/boulder.glb").instantiate() as Node3D
 	add_child(art)
-	art.scale = Vector3.ONE * size_factor
 	var mesh_instance := _find_mesh(art)
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Play.COLORS[rock_id]
+	mat.roughness = .9
+	mesh_instance.material_override = mat
 	var collider := CollisionShape3D.new()
-	var hull := mesh_instance.mesh.create_convex_shape()
-	var scaled_points := hull.points
-	for i in scaled_points.size():
-		scaled_points[i] *= size_factor
-	hull.points = scaled_points
-	collider.shape = hull
+	collider.shape = mesh_instance.mesh.create_convex_shape()
 	add_child(collider)
 	add_to_group("boulders")
 
 func _find_mesh(node: Node) -> MeshInstance3D:
-	if node is MeshInstance3D:
-		return node as MeshInstance3D
+	if node is MeshInstance3D: return node as MeshInstance3D
 	for child in node.get_children():
 		var found := _find_mesh(child)
-		if found != null:
-			return found
+		if found != null: return found
 	return null
 
 func attach_to_bucket() -> void:
 	carried = true
 	ever_carried = true
-	delivered = false
+	settled_in_garden = false
 	settle_time = 0
 	freeze = true
 	collision_layer = 0
@@ -61,12 +59,14 @@ func release_from_bucket(launch_velocity: Vector3) -> void:
 	freeze = false
 	sleeping = false
 	linear_velocity = launch_velocity
-	angular_velocity = Vector3(.3, .15, .2)
+	angular_velocity = Vector3(.1,.2,.1)
 
-func reset_rock() -> void:
+func reset_rock(clear_reward: bool = true) -> void:
 	carried = false
-	ever_carried = false
-	delivered = false
+	if clear_reward:
+		rewarded = false
+		ever_carried = false
+	settled_in_garden = false
 	settle_time = 0
 	freeze = true
 	global_position = spawn_point
@@ -79,16 +79,14 @@ func reset_rock() -> void:
 	sleeping = false
 
 func _physics_process(delta: float) -> void:
-	if carried:
-		return
-	if global_position.y < -8 or absf(global_position.x) > 40 or absf(global_position.z) > 40:
-		reset_rock()
-	var p := global_position - Vector3(8,0,-8)
-	# Stacked material counts too, provided the rigid body has actually settled.
-	var in_zone := absf(p.x) < 2.8 and absf(p.z) < 2.8 and p.y < 3.5
-	if in_zone and ever_carried and linear_velocity.length() < .45:
+	if carried: return
+	# A lost toy quietly comes back. Children never need a recovery command.
+	if position.y < -3 or absf(position.x)>11.5 or absf(position.z)>8.0:
+		reset_rock(false)
+	var offset := Vector2(position.x-Play.DROP_CENTER.x,position.z-Play.DROP_CENTER.z)
+	if ever_carried and offset.length()<Play.DROP_RADIUS and position.y<3 and linear_velocity.length()<.5:
 		settle_time += delta
-		delivered = settle_time > 1.0
+		settled_in_garden = settle_time>.4
 	else:
 		settle_time = 0
-		delivered = false
+		settled_in_garden = false

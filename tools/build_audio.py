@@ -24,3 +24,20 @@ for name in ("diesel", "hydraulics"):
     with wave.open(str(out / f"{name}.wav"), 'wb') as f:
         f.setparams((1, 2, rate, 0, 'NONE', 'not compressed'))
         f.writeframes(frames)
+
+# Short, gentle toy sounds. Envelopes eliminate clicks at either end.
+for name, notes in {
+    'scoop': [(392, .10), (523.25, .14)],
+    'plop': [(180, .13)],
+    'star': [(523.25, .12), (659.25, .12), (783.99, .24)],
+}.items():
+    frames = bytearray()
+    for frequency, duration in notes:
+        for i in range(int(rate * duration)):
+            t = i / rate
+            envelope = min(1, t / .012) * max(0, 1 - t / duration)**1.5
+            value = .38 * envelope * (math.sin(2 * math.pi * frequency * t) + .13 * math.sin(2 * math.pi * frequency * 2 * t))
+            frames.extend(struct.pack('<h', int(value * 32767)))
+    with wave.open(str(out / f'{name}.wav'), 'wb') as f:
+        f.setparams((1, 2, rate, 0, 'NONE', 'not compressed'))
+        f.writeframes(frames)

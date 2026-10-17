@@ -19,16 +19,19 @@ case "${1:-play}" in
     ;;
   test|--test)
     "${engine[@]}" --headless --path "$PWD" --editor --import
-    exec "${engine[@]}" --headless --path "$PWD" --fixed-fps 60 -- --smoke-test
+    for suite in --smoke-test --bulldozer-test --menu-test; do
+      "${engine[@]}" --headless --path "$PWD" --fixed-fps 60 -- "$suite"
+    done
     ;;
   capture|--capture)
     "${engine[@]}" --headless --path "$PWD" --editor --import
-    exec "${engine[@]}" --path "$PWD" --resolution 1440x900 -- --capture
+    "${engine[@]}" --path "$PWD" --resolution 1440x900 -- --capture
+    "${engine[@]}" --path "$PWD" --resolution 1440x900 -- --excavator --capture
+    "${engine[@]}" --path "$PWD" --resolution 1440x900 -- --bulldozer --capture
     ;;
   play)
-    if [[ ! -d .godot/imported ]]; then
-      "${engine[@]}" --headless --path "$PWD" --editor --import
-    fi
+    # Refresh cached GLBs after edits or a switch between main and expert.
+    "${engine[@]}" --quiet --headless --path "$PWD" --editor --import
     exec "${engine[@]}" --path "$PWD"
     ;;
   *)
