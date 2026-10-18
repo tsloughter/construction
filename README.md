@@ -122,3 +122,23 @@ The automated suite exercises direct directional movement, stopping, a fixed cam
 The bulldozer suite also checks direct physical pushing, actual falling into holes, assisted delivery, displaced boulders, duplicate rewards, restarting and refilling, touch release, and recovery. The opening-screen suite dispatches mouse, touch, and keyboard input and checks world cleanup, paused navigation, and sound preferences.
 
 The games and opening screen are visually checked through native Godot renders. Font licenses are included in `assets/fonts/`; models, scenery, UI, and sounds were created for this project.
+
+## License
+
+Copyright (C) 2026 Tristan Sloughter.
+
+Little Builders, including its source code and original models, scenery, UI, and sounds, is free software: you can redistribute it and/or modify it under the terms of the **GNU Affero General Public License**, either version 3 of the License, or (at your option) any later version (**SPDX: AGPL-3.0-or-later**). The full license is in [LICENSE](LICENSE).
+
+This project is distributed in the hope that it will be useful, but **WITHOUT ANY WARRANTY**; without even the implied warranty of **MERCHANTABILITY** or **FITNESS FOR A PARTICULAR PURPOSE**. See the GNU Affero General Public License for more details.
+
+Source code is available at [tsloughter/construction](https://github.com/tsloughter/construction).
+
+### Third-party notices
+
+- **Godot Engine** is distributed under the [MIT license](https://godotengine.org/license/), with copyright held by the Godot Engine contributors and Juan Linietsky and Ariel Manzur. Godot's bundled libraries have their own notices in its [COPYRIGHT.txt](https://github.com/godotengine/godot/blob/master/COPYRIGHT.txt).
+- **Roboto** is distributed under the [Apache License 2.0](assets/fonts/Roboto-LICENSE.txt).
+- **Source Code Pro** is copyright 2023 Adobe and distributed under the [SIL Open Font License 1.1](assets/fonts/SourceCodePro-LICENSE.md).
+
+The engine and fonts retain their respective licenses.
+
+When distributing a Godot export, ship `LICENSE`, this `README.md`, and both font license files as accompanying documentation. Also include the Godot `COPYRIGHT.txt` matching the engine/export-template version, renamed to `GODOT_COPYRIGHT.txt`, for its bundled third-party libraries, as described in [Godot's license guidance](https://docs.godotengine.org/en/stable/about/complying_with_licenses.html). Godot does not automatically export non-resource documentation, so copy these files alongside the executable or explicitly include them in the export's non-resource file filters. Provide the corresponding source for the distributed version under the AGPL's terms; if a modified version supports remote network interaction, offer those users access to its corresponding source as required by section 13.
