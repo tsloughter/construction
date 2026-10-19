@@ -58,13 +58,14 @@ box('Round rear body',(0,1.12,.92),(2.5,.65,1.0),orange,root,.24)
 box('Cab',(0,1.85,.12),(1.65,1.8,1.65),glass,root,.24)
 box('Sunny roof',(0,2.77,.12),(1.95,.22,1.95),yellow,root,.1)
 box('Engine hood',(0,1.08,-1.05),(1.75,.6,1.05),orange,root,.2)
-for z in [-.76,1.0]:
-    for x in [-.40,.40]:
-        ball('Eye',(x,2.05,z),(.29,.32,.1),white,root)
-        ball('Pupil',(x+.025,2.05,z+(-.1 if z<0 else .1)),(.12,.17,.05),black,root)
-    for i in range(7):
-        x=-.4+i*.133
-        ball('Smile',(x,1.56+.15*(x/.4)**2,z+(-.06 if z<0 else .06)),(.075,.045,.035),black,root)
+# One friendly face on the front window, above the blade.
+face_z=-.76
+for x in [-.40,.40]:
+    ball('Eye',(x,2.05,face_z),(.29,.32,.1),white,root)
+    ball('Pupil',(x+.025,2.05,face_z-.1),(.12,.17,.05),black,root)
+for i in range(7):
+    x=-.4+i*.133
+    ball('Smile',(x,1.56+.15*(x/.4)**2,face_z-.06),(.075,.045,.035),black,root)
 for x in [-1.12,1.12]:
     box('Blade arm',(x,.51,-1.45),(.2,.24,1.2),blue,root,.08)
 # A broad, blunt, slightly curved blade; the three panels form a shallow scoop.

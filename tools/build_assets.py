@@ -122,15 +122,16 @@ box('Round yellow body',(0,.35,.15),(2.8,.8,2.8),yellow,upper,.3)
 box('Plump back',(0,.68,.95),(2.7,.9,1.0),yellow,upper,.28)
 box('Cab',(-.6,1.2,-.1),(1.45,1.7,1.65),glass,upper,.24)
 box('Sunny roof',(-.6,2.07,-.1),(1.7,.23,1.95),yellow,upper,.10)
-# A friendly face on each cab window, visible from either end.
-for z in (-.95,.75):
-    for x in (-.93,-.31):
-        ball('White eye',(x,1.45,z),(.25,.29,.10),lamp,upper)
-        ball('Pupil',(x+.04,1.44,z+(-.095 if z<0 else .095)),(.10,.15,.045),black,upper)
-    for i in range(7):
-        x=-.94+i*.11
-        y=1.00+.17*((x+.61)/.33)**2
-        ball('Smile',(x,y,z+(-.04 if z<0 else .04)),(.07,.055,.025),black,upper)
+# A friendly face on the front cab window only, so the digger always looks
+# where it is going.
+face_z = -.95
+for x in (-.93,-.31):
+    ball('White eye',(x,1.45,face_z),(.25,.29,.10),lamp,upper)
+    ball('Pupil',(x+.04,1.44,face_z-.095),(.10,.15,.045),black,upper)
+for i in range(7):
+    x=-.94+i*.11
+    y=1.00+.17*((x+.61)/.33)**2
+    ball('Smile',(x,y,face_z-.04),(.07,.055,.025),black,upper)
 ball('Orange button',(.73,1.0,.8),(.2,.15,.2),orange,upper)
 boom=empty('Boom',(.35,.66,-.55),upper)
 box('Chunky boom',(0,.1,-1.50),(.58,.57,3.3),yellow,boom,.23)
