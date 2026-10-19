@@ -35,9 +35,22 @@ func _ready() -> void:
 	sun.light_energy = .4
 	sun.shadow_enabled = true
 	world.add_child(sun)
-	var model: Node3D = load("res://assets/models/"+("excavator" if kind == "excavator" else "bulldozer")+".glb").instantiate()
+	var model: Node3D
+	if kind == "loader":
+		model = preload("res://scripts/hauler_model.gd").new()
+	else:
+		model = load("res://assets/models/"+("excavator" if kind == "excavator" else "bulldozer")+".glb").instantiate()
 	world.add_child(model)
-	model.rotation.y = .15 if kind == "bulldozer" else -.2
+	model.rotation.y = .15 if kind != "excavator" else -.2
+	if kind == "loader":
+		model.position.x = -1.2
+		model.scale = Vector3.ONE*.75
+		var truck = preload("res://scripts/hauler_model.gd").new()
+		truck.kind = "truck"
+		world.add_child(truck)
+		truck.position = Vector3(1.6,0,.3)
+		truck.scale = Vector3.ONE*.65
+		truck.rotation.y = -.35
 	if kind == "excavator":
 		model.find_child("Boom",true,false).rotation.x = -.35
 		model.find_child("Stick",true,false).rotation.x = .55
@@ -59,8 +72,8 @@ func _draw() -> void:
 	style.border_color = Color("e3ab43") if selected else Color("f2e7cb")
 	style.set_border_width_all(5 if selected else 2)
 	draw_style_box(style,Rect2(Vector2.ZERO,size))
-	_center("EXCAVATOR" if kind == "excavator" else "BULLDOZER",Vector2(270,51),25,INK)
-	_center("Scoop & carry" if kind == "excavator" else "Push & fill",Vector2(270,399),30,INK)
+	_center({"excavator":"EXCAVATOR","bulldozer":"BULLDOZER","loader":"LOADER + TRUCK"}[kind],Vector2(270,51),25,INK)
+	_center({"excavator":"Scoop & carry","bulldozer":"Push & fill","loader":"Load & haul"}[kind],Vector2(270,399),30,INK)
 	style.set_border_width_all(0)
 	style.set_corner_radius_all(23)
 	style.bg_color = Color("b6dcb5") if kind == "excavator" else Color("ffd17b")

@@ -2,6 +2,7 @@ extends Node
 
 const Menu = preload("res://scripts/opening_menu.gd")
 const ExcavatorGame = preload("res://scripts/main.gd")
+const LoaderGame = preload("res://scripts/loader_game.gd")
 const BulldozerGame = preload("res://scripts/bulldozer_game.gd")
 var active_game
 var menu
@@ -17,6 +18,8 @@ func _ready() -> void:
 		start_game("excavator")
 	elif "--bulldozer" in args or "--bulldozer-test" in args:
 		start_game("bulldozer")
+	elif "--loader" in args or "--loader-test" in args:
+		start_game("loader")
 	else:
 		show_menu()
 		if "--capture" in args: _capture_menu()
@@ -45,7 +48,10 @@ func _clear() -> void:
 func start_game(kind: String) -> void:
 	_clear()
 	current_mode = kind
-	active_game = BulldozerGame.new() if kind == "bulldozer" else ExcavatorGame.new()
+	match kind:
+		"loader": active_game = LoaderGame.new()
+		"bulldozer": active_game = BulldozerGame.new()
+		_: active_game = ExcavatorGame.new()
 	add_child(active_game)
 	if muted: active_game.toggle_mute()
 	active_game.menu_requested.connect(_request_menu)

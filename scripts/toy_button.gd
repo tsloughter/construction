@@ -7,6 +7,7 @@ var color := Color("ffffff")
 var down := false
 var touch_id := -1
 var disabled := false
+var pebble_color := Color("cd9feb")
 const INK := Color("35506a")
 
 func _ready() -> void:
@@ -67,12 +68,17 @@ func _draw() -> void:
 		# A bucket and a pebble, with an arrow into or out of the scoop.
 		var c := center+Vector2(0,unit*.25)
 		draw_polyline(PackedVector2Array([c+Vector2(-1,-.2)*unit,c+Vector2(-.65,.6)*unit,c+Vector2(.65,.6)*unit,c+Vector2(1,-.2)*unit]),INK,6,true)
-		draw_circle(c+Vector2(0,-.12)*unit,unit*.3,Color("cd9feb"))
+		draw_circle(c+Vector2(0,-.12)*unit,unit*.3,pebble_color)
 		var direction := 1.0 if icon == "scoop" else -1.0
 		var top := center+Vector2(0,-unit*.90)
 		draw_line(top+Vector2(0,-unit*.32),top+Vector2(0,unit*.32),INK,5,true)
 		var tip := top+Vector2(0,direction*unit*.32)
 		draw_polyline(PackedVector2Array([tip+Vector2(-.25,-direction*.25)*unit,tip,tip+Vector2(.25,-direction*.25)*unit]),INK,5,true)
+	elif icon == "truck":
+		draw_style_box(_pill(INK,4),Rect2(center+Vector2(-1.15,-.4)*unit,Vector2(1.5,.7)*unit))
+		draw_rect(Rect2(center+Vector2(.4,-.2)*unit,Vector2(.65,.5)*unit),INK)
+		for x in [-.7,.7]: draw_circle(center+Vector2(x,.48)*unit,unit*.25,INK)
+		draw_line(center+Vector2(-.9,-.65)*unit,center+Vector2(.15,-1.0)*unit,INK,5,true)
 	elif icon == "home":
 		draw_colored_polygon(PackedVector2Array([center+Vector2(-1,0)*unit,center+Vector2(0,-.9)*unit,center+Vector2(1,0)*unit]),INK)
 		draw_rect(Rect2(center+Vector2(-.65,-.05)*unit,Vector2(1.3,.9)*unit),INK)

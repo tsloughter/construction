@@ -13,6 +13,12 @@ const BOLD = preload("res://assets/fonts/Roboto-Bold.ttf")
 const FONT = preload("res://assets/fonts/Roboto-Regular.ttf")
 var vehicle
 var bulldozer_mode := false
+var loader_mode := false
+var load_count := 0
+var hauler_title := "little loader"
+var hauler_action := "SCOOP"
+var hauler_hint := ""
+var hauler_icon := "scoop"
 var home_button
 var menu_button
 var stars := 0
@@ -96,6 +102,9 @@ func _process(delta: float) -> void:
 	mute_button.visible = paused
 	mute_button.icon = "mute" if muted else "sound"
 	action_button.icon = "push" if bulldozer_mode else ("drop" if vehicle.held != null else "scoop")
+	if loader_mode:
+		action_button.icon = hauler_icon
+		action_button.pebble_color = Color("a97950")
 	action_button.disabled = vehicle.busy
 	action_button.color = Color("a5dbb2") if vehicle.held != null else Color("ffcf69")
 	queue_redraw()
@@ -103,19 +112,19 @@ func _process(delta: float) -> void:
 func _draw() -> void:
 	draw_set_transform(ui_offset,0,Vector2.ONE*ui_scale)
 	_panel(Rect2(25,26,324,104),Color(CREAM,.94),24)
-	_text("little dozer" if bulldozer_mode else "little digger",Vector2(42,80),42,INK,BOLD)
-	_text("Let's build something!",Vector2(44,111),18,INK)
+	_text(hauler_title if loader_mode else ("little dozer" if bulldozer_mode else "little digger"),Vector2(42,80),42,INK,BOLD)
+	_text(("Truck: %d / 3 bucketfuls"%load_count) if loader_mode else "Let's build something!",Vector2(44,111),18,INK)
 	# Three stars are keepsakes, not a countdown or a score to lose.
 	_panel(Rect2(976,35,257,73),CREAM,28)
 	for i in 3:
 		_star(Vector2(1023+i*80,69),23,Color("efb741") if i<stars else Color("dfdfc8"))
 	if not paused:
 		_text("MOVE",Vector2(201,777),15,INK,BOLD)
-		_text("PUSH" if bulldozer_mode else ("DROP" if vehicle.held != null else "SCOOP"),Vector2(1255,713),23,INK,BOLD)
+		_text(hauler_action if loader_mode else ("PUSH" if bulldozer_mode else ("DROP" if vehicle.held != null else "SCOOP")),Vector2(1255,713),23,INK,BOLD)
 		_panel(Rect2(410,805,620,70),CREAM,26)
-		_text("Push rocks into the holes!" if bulldozer_mode else "Tap a rock. Tap the star.",Vector2(558,834),23,INK,BOLD)
+		_text(hauler_hint if loader_mode else ("Push rocks into the holes!" if bulldozer_mode else "Tap a rock. Tap the star."),Vector2(540 if loader_mode else 558,834),20 if loader_mode else 23,INK,BOLD)
 		_text("Drive with arrows. Tap a rock for help." if bulldozer_mode else "Or use the arrow keys + Space",Vector2(586,859),15,INK)
-		draw_circle(Vector2(450,839),15,Color("cd9feb"))
+		draw_circle(Vector2(450,839),15,Color("a97950") if loader_mode else Color("cd9feb"))
 		draw_line(Vector2(475,839),Vector2(497,839),INK,3,true)
 		draw_line(Vector2(488,831),Vector2(497,839),INK,3,true)
 		draw_line(Vector2(488,847),Vector2(497,839),INK,3,true)

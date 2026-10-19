@@ -1,6 +1,6 @@
 # Little Builders
 
-Two cheerful, toy-like **construction games** for children around **3–5 years old**. Choose the excavator or bulldozer from the opening picture screen. Both games have a fixed camera, simple directional controls, and three optional keepsake stars.
+Three cheerful, toy-like **construction games** for children around **3–5 years old**. Choose the excavator, bulldozer, or loader and dump truck from the opening picture screen. All three games have a fixed camera, simple directional controls, and three optional keepsake stars.
 
 The detailed construction prototype is on **`expert`**, and the earlier sandbox version is on **`preschool`**. The toy construction-site version is being developed on **`main`**.
 
@@ -12,7 +12,7 @@ After switching branches, open the project in the Godot editor to refresh the im
 
 Run `./run.sh`, or open `project.godot` in Godot and press **F5**.
 
-The opening screen has two large vehicle pictures. Click or tap either picture to start. Keyboard selection also works: Left/Right then Enter, or 1 for excavator and 2 for bulldozer. The **house button** in either game returns to the chooser; choosing a game starts a fresh round. Sound preferences carry across games.
+The opening screen has three large vehicle pictures. Click or tap a picture to start. Keyboard selection also works: Left/Right then Enter, or 1 for excavator, 2 for bulldozer, and 3 for loader and truck. The **house button** in any game returns to the chooser; choosing a game starts a fresh round. Sound preferences carry across games.
 
 ### Excavator: scoop & carry
 
@@ -40,10 +40,19 @@ No reading, camera controls, separate steering, or arm controls are required. Th
 
 The rocks are free physics bodies while being pushed. The vehicle is supported over the holes so children cannot get it stuck in one. Lost boulders return quietly.
 
+### Loader + truck: load & haul
+
+1. **Tap the brown dirt pile** or press **Space** / the large scoop button. The yellow wheel loader drives over, lowers its bucket into the pile, and lifts a bucketful of dirt.
+2. **Tap the dump truck** or press **Space** again. The loader carries the dirt over and tips it into the truck bed. Repeat for **three bucketfuls**; the counter shows how full the truck is.
+3. When the truck is full, driving control switches to the **teal dump truck**. Drive it with the arrows, WASD, or direction buttons. **Tap the star** or press **Space** for help driving to the separate dumping bay and tipping the bed.
+4. After unloading, **tap the loading pad** or press **Space** to return and park the empty truck. Control switches back to the loader, ready for another load.
+
+Arrow input takes over from assisted driving immediately. Tipping and scooping animate automatically, so there are no separate arm, bucket, or hydraulic controls. Each completed truck delivery earns a keepsake star, up to three; hauling can continue afterwards. Dirt stays visible in the bucket, truck bed, and delivery pile. The dirt bank replenishes, and this mode uses controlled dirt transfers rather than terrain deformation or loose-particle physics.
+
 ## A relaxed place to play
 
 - No timer, failure state, lives, or penalties.
-- One little star for each different pebble delivered in the excavator game, or each hole filled in the bulldozer game.
+- One little star for each different pebble delivered in the excavator game, each hole filled in the bulldozer game, or each full truck unloaded in the loader game.
 - Stars stay earned even if a pebble is picked up again.
 - Finishing all three gives a little celebration and lets play continue.
 - The site keeps the vehicle in view; a lost pebble quietly returns.
@@ -68,7 +77,7 @@ Keyboard shortcuts for grown-ups: **Escape** pauses, **R** starts again, and **M
 ./run.sh         # play
 ./run.sh edit    # Godot editor
 ./run.sh test    # import and run gameplay/input tests
-./run.sh capture # opening.png, yard.png, bulldozer.png in screenshots/
+./run.sh capture # opening.png, yard.png, bulldozer.png, loader.png in screenshots/
 ```
 
 The launcher detects native Godot or the installed Godot Flatpak. Built and tested with Godot 4.7.2 and Blender 5.2.0. Imported GLBs are included, so Blender is not needed to play.
@@ -83,6 +92,9 @@ The launcher detects native Godot or the installed Godot Flatpak. Built and test
 | `scenes/main.tscn` | Original excavator scene, also playable directly |
 | `scripts/main.gd` | Click/tap interaction, rewards, pause, reset, sounds |
 | `scripts/bulldozer_game.gd` | Second game: rock selection, filled-hole rewards, and restart |
+| `scripts/loader_game.gd` | Third game: scooping, three-bucket truck loads, vehicle switching, hauling, tipping, and return |
+| `scripts/hauler_vehicle.gd` / `scripts/hauler_model.gd` | Shared loader/truck driving and original rounded vehicle models with moving bucket and bed |
+| `scripts/loader_yard.gd` | Dirt bank, loading pad, dumping bay, and delivered dirt pile |
 | `scripts/bulldozer.gd` | Direct driving, physical pushing, and optional approach/push assist |
 | `scripts/dozer_yard.gd` / `scripts/fill_hole.gd` | Perforated terrain, holes, and completed-hole plugs |
 | `scripts/dozer_layout.gd` / `scripts/push_boulder.gd` | Starting positions and rolling boulder physics |
@@ -100,7 +112,9 @@ The launcher detects native Godot or the installed Godot Flatpak. Built and test
 | `tools/build_site_props.py` | Regenerates the rounded site block |
 | `tools/build_assets.py` | Blender asset generator |
 | `tools/build_audio.py` | Original sound generator |
-| `tests/gameplay_test.gd`, `tests/bulldozer_test.gd`, `tests/menu_test.gd` | Excavator, pushing physics, and game-switching integration checks |
+| `tests/gameplay_test.gd`, `tests/bulldozer_test.gd`, `tests/loader_test.gd`, `tests/menu_test.gd` | Excavator, pushing physics, hauling, and game-switching integration checks |
+
+The loader and truck are assembled at runtime from the shared rounded site-block mesh and generated wheel and dirt meshes; their editable model definition is `scripts/hauler_model.gd`.
 
 The excavator keeps the original project's arm pivots and two-link arm math, with a simpler toy model and automatic controls. Rocks are secured to the bucket for reliable carrying and return to gravity/collisions when dropped. The bulldozer uses a separate rolling-rock physics setup and prebuilt holes; there is no arbitrary terrain deformation.
 
@@ -120,6 +134,8 @@ A native Blender installation can run the same script with `blender --background
 The automated suite exercises direct directional movement, stopping, a fixed camera, actual viewport dispatch for mouse and touch buttons, release outside buttons, one-button collection and free dropping, collecting all three rocks through generous click targets, automatic material-bay delivery, persistent/non-duplicated rewards, interruption of automatic driving, pause and restart during a scoop, lost-rock recovery, site boundaries, and mute.
 
 The bulldozer suite also checks direct physical pushing, actual falling into holes, assisted delivery, displaced boulders, duplicate rewards, restarting and refilling, touch release, and recovery. The opening-screen suite dispatches mouse, touch, and keyboard input and checks world cleanup, paused navigation, and sound preferences.
+
+The loader suite checks three complete hauling cycles, direct driving of both vehicles, visible cargo transfers, bed tipping, returning for another load, non-duplicated rewards, pause during tipping, restart during a paused scoop, interruption of assistance, touch release, boundaries, and sound. The chooser suite also checks mouse, touch, and keyboard access to the third mode and cleanup when leaving it.
 
 The games and opening screen are visually checked through native Godot renders. Font licenses are included in `assets/fonts/`; models, scenery, UI, and sounds were created for this project.
 

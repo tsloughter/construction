@@ -19,7 +19,7 @@ case "${1:-play}" in
     ;;
   test|--test)
     "${engine[@]}" --headless --path "$PWD" --editor --import
-    for suite in --smoke-test --bulldozer-test --menu-test; do
+    for suite in --smoke-test --bulldozer-test --loader-test --menu-test; do
       "${engine[@]}" --headless --path "$PWD" --fixed-fps 60 -- "$suite"
     done
     ;;
@@ -28,6 +28,7 @@ case "${1:-play}" in
     "${engine[@]}" --path "$PWD" --resolution 1440x900 -- --capture
     "${engine[@]}" --path "$PWD" --resolution 1440x900 -- --excavator --capture
     "${engine[@]}" --path "$PWD" --resolution 1440x900 -- --bulldozer --capture
+    "${engine[@]}" --path "$PWD" --resolution 1440x900 -- --loader --capture
     ;;
   play)
     # Refresh cached GLBs after edits or a switch between main and expert.

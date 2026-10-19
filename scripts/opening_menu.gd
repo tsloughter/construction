@@ -16,11 +16,12 @@ func _ready() -> void:
 	content = Control.new()
 	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(content)
-	for i in 2:
+	for i in 3:
 		var card := Card.new()
-		card.kind = "excavator" if i == 0 else "bulldozer"
-		card.position = Vector2(140+i*620,272)
+		card.kind = ["excavator","bulldozer","loader"][i]
+		card.position = Vector2(45+i*460,272)
 		card.size = Vector2(540,510)
+		card.scale = Vector2.ONE*.8
 		card.activated.connect(func(): game_selected.emit(card.kind))
 		card.mouse_entered.connect(func(): selected = i)
 		content.add_child(card)
@@ -32,7 +33,7 @@ func _process(_delta: float) -> void:
 	ui_offset = (view-Vector2(1440,900)*ui_scale)/2
 	content.position = ui_offset
 	content.scale = Vector2.ONE*ui_scale
-	for i in 2:
+	for i in 3:
 		cards[i].selected = i == selected
 		cards[i].queue_redraw()
 	queue_redraw()
@@ -40,11 +41,12 @@ func _process(_delta: float) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
 		match event.physical_keycode:
-			KEY_LEFT,KEY_A: selected = 0
-			KEY_RIGHT,KEY_D: selected = 1
+			KEY_LEFT,KEY_A: selected = maxi(0,selected-1)
+			KEY_RIGHT,KEY_D: selected = mini(2,selected+1)
 			KEY_ENTER,KEY_KP_ENTER,KEY_SPACE: game_selected.emit(cards[selected].kind)
 			KEY_1: game_selected.emit("excavator")
 			KEY_2: game_selected.emit("bulldozer")
+			KEY_3: game_selected.emit("loader")
 		get_viewport().set_input_as_handled()
 
 func _draw() -> void:
