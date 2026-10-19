@@ -34,10 +34,9 @@ func _ready() -> void:
 	rim.position.y = .02
 	add_child(rim)
 	# One large star behind each hole provides a picture goal.
-	var yard = get_parent()
 	badge = Geo.cylinder(self,Vector3(0,1.2,-2.06),.66,.06,Geo.material(Color("fff8e5")),-1,32)
 	badge.rotation.x = PI/2
-	star = yard._star(position+Vector3(0,1.2,-2.0),.46,Geo.material(Color("c8c6af")))
+	star = Geo.star(self,Vector3(0,1.2,-2.0),.46,Geo.material(Color("c8c6af")))
 
 func fill(rock: RigidBody3D) -> void:
 	if filled: return

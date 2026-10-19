@@ -22,7 +22,7 @@ func _physics_process(_delta: float) -> void:
 	if position.y < -3 or absf(position.x)>11.5 or absf(position.z)>8:
 		reset_rock()
 
-func reset_rock(_clear_reward: bool = true) -> void:
+func reset_rock(clear_reward: bool = true) -> void:
 	completed = false
-	super.reset_rock()
+	super.reset_rock(clear_reward)
 	collision_mask = 14

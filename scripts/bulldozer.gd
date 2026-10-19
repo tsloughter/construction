@@ -5,7 +5,6 @@ const Layout = preload("res://scripts/dozer_layout.gd")
 const Geo = preload("res://scripts/geometry.gd")
 enum Mode { IDLE, GO, APPROACH, PUSH }
 var mode := Mode.IDLE
-var held = null
 var busy := false
 var moving := false
 var drive_speed := 0.0
@@ -92,6 +91,9 @@ func _physics_process(delta: float) -> void:
 	marker.visible = is_instance_valid(chosen) and not chosen.completed
 	if marker.visible: marker.global_position = Vector3(chosen.position.x,.06,chosen.position.z)
 	if Input.is_action_just_pressed("scoop"): action()
+
+func has_load() -> bool:
+	return false
 
 func _toward(point: Vector3) -> Vector3:
 	var offset := point-position

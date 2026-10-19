@@ -57,6 +57,26 @@ static func label(parent: Node3D, text: String, pos: Vector3, size: int, color: 
 	node.position = pos
 	return node
 
+static func star(parent: Node3D, pos: Vector3, radius: float, mat: Material) -> MeshInstance3D:
+	var surface := SurfaceTool.new()
+	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in 10:
+		var a := -PI/2+TAU*i/10
+		var b := -PI/2+TAU*(i+1)/10
+		var ra := radius if i%2 == 0 else radius*.46
+		var rb := radius if (i+1)%2 == 0 else radius*.46
+		surface.add_vertex(Vector3.ZERO)
+		surface.add_vertex(Vector3(cos(b)*rb,-sin(b)*rb,0))
+		surface.add_vertex(Vector3(cos(a)*ra,-sin(a)*ra,0))
+	surface.generate_normals()
+	var instance := MeshInstance3D.new()
+	instance.mesh = surface.commit()
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	instance.material_override = mat
+	parent.add_child(instance)
+	instance.position = pos
+	return instance
+
 static func ring(parent: Node3D, radius: float, color: Color, segments: int = 40) -> Node3D:
 	var node := Node3D.new()
 	parent.add_child(node)

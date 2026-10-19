@@ -17,7 +17,7 @@ func _delivery_bay() -> void:
 		ring.position = p+Vector3(0,.08,0)
 	Geo.label(self,"LOAD",TRUCK+Vector3(0,.1,3),32,Color("35506a")).rotation.x = -PI/2
 	Geo.label(self,"DUMP",DUMP+Vector3(0,.1,3),32,Color("35506a")).rotation.x = -PI/2
-	goal_star = _star(DUMP+Vector3(0,2.35,.6),.7,Geo.material(Color("ffdc63")))
+	goal_star = Geo.star(self,DUMP+Vector3(0,2.35,.6),.7,Geo.material(Color("ffdc63")))
 	delivered_pile = HaulerModel.dirt_clumps(self,DUMP+Vector3(0,.09,1),Vector3(1.5,.9,1.3),36)
 	delivered_pile.visible = false
 	_cone(Vector3(10.4,0,-6.3))
@@ -28,8 +28,3 @@ func _delivery_bay() -> void:
 func show_deliveries(count: int) -> void:
 	delivered_pile.visible = count>0
 	delivered_pile.scale = Vector3.ONE*(.8+minf(count,3)*.15)
-
-func _process(delta: float) -> void:
-	time += delta
-	goal_star.position.y = 2.35+sin(time*1.8)*.13
-	goal_star.rotation.z = sin(time*1.2)*.10

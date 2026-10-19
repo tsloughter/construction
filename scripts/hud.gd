@@ -101,12 +101,12 @@ func _process(delta: float) -> void:
 	reset_button.visible = paused
 	mute_button.visible = paused
 	mute_button.icon = "mute" if muted else "sound"
-	action_button.icon = "push" if bulldozer_mode else ("drop" if vehicle.held != null else "scoop")
+	action_button.icon = "push" if bulldozer_mode else ("drop" if vehicle.has_load() else "scoop")
 	if loader_mode:
 		action_button.icon = hauler_icon
 		action_button.pebble_color = Color("a97950")
 	action_button.disabled = vehicle.busy
-	action_button.color = Color("a5dbb2") if vehicle.held != null else Color("ffcf69")
+	action_button.color = Color("a5dbb2") if vehicle.has_load() else Color("ffcf69")
 	queue_redraw()
 
 func _draw() -> void:
@@ -120,7 +120,7 @@ func _draw() -> void:
 		_star(Vector2(1023+i*80,69),23,Color("efb741") if i<stars else Color("dfdfc8"))
 	if not paused:
 		_text("MOVE",Vector2(201,777),15,INK,BOLD)
-		_text(hauler_action if loader_mode else ("PUSH" if bulldozer_mode else ("DROP" if vehicle.held != null else "SCOOP")),Vector2(1255,713),23,INK,BOLD)
+		_text(hauler_action if loader_mode else ("PUSH" if bulldozer_mode else ("DROP" if vehicle.has_load() else "SCOOP")),Vector2(1255,713),23,INK,BOLD)
 		_panel(Rect2(410,805,620,70),CREAM,26)
 		_text(hauler_hint if loader_mode else ("Push rocks into the holes!" if bulldozer_mode else "Tap a rock. Tap the star."),Vector2(540 if loader_mode else 558,834),20 if loader_mode else 23,INK,BOLD)
 		_text("Drive with arrows. Tap a rock for help." if bulldozer_mode else "Or use the arrow keys + Space",Vector2(586,859),15,INK)
@@ -165,8 +165,8 @@ func _panel(rect: Rect2, color: Color, radius: int) -> void:
 	style.set_corner_radius_all(radius)
 	draw_style_box(style,rect)
 
-func _text(text: String, pos: Vector2, size: int, color: Color, font: Font = FONT) -> void:
-	draw_string(font,pos,text,HORIZONTAL_ALIGNMENT_LEFT,-1,size,color)
+func _text(text: String, pos: Vector2, font_size: int, color: Color, font: Font = FONT) -> void:
+	draw_string(font,pos,text,HORIZONTAL_ALIGNMENT_LEFT,-1,font_size,color)
 
-func _center_text(text: String, pos: Vector2, size: int, color: Color, font: Font = FONT) -> void:
-	_text(text,pos-Vector2(font.get_string_size(text,HORIZONTAL_ALIGNMENT_LEFT,-1,size).x/2,0),size,color,font)
+func _center_text(text: String, pos: Vector2, font_size: int, color: Color, font: Font = FONT) -> void:
+	_text(text,pos-Vector2(font.get_string_size(text,HORIZONTAL_ALIGNMENT_LEFT,-1,font_size).x/2,0),font_size,color,font)

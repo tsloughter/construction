@@ -8,7 +8,6 @@ var settled_in_garden := false
 var settle_time := 0.0
 var spawn_point := Vector3.ZERO
 var rock_id := 0
-var size_factor := 1.0
 
 func _ready() -> void:
 	spawn_point = global_position

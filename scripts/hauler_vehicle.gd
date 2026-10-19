@@ -5,7 +5,7 @@ const Play = preload("res://scripts/playground.gd")
 var kind := "loader"
 var model
 var active := false
-var held = null
+var loaded := false
 var busy := false
 var moving := false
 var drive_speed := 0.0
@@ -60,7 +60,13 @@ func _physics_process(delta: float) -> void:
 	if position.y< -2: position.y = 0
 	drive_speed = Vector2(velocity.x,velocity.z).length()
 	moving = travel.length()>.05
+	var forward_speed := Vector2(velocity.x,velocity.z).dot(Vector2(-global_basis.z.x,-global_basis.z.z))
+	for wheel in model.wheels:
+		wheel.rotate_object_local(Vector3.UP,-forward_speed/.64*delta)
 	if active and not busy and Input.is_action_just_pressed("scoop"): action()
+
+func has_load() -> bool:
+	return loaded
 
 func action() -> void:
 	if not busy: action_requested.emit()
@@ -84,7 +90,7 @@ func cancel_movement(release_touch: bool = true) -> void:
 func reset_vehicle() -> void:
 	cancel_movement()
 	busy = false
-	held = null
+	loaded = false
 	rotation = Vector3.ZERO
 	model.set_load(0)
 	if kind == "loader": model.set_lift(0)

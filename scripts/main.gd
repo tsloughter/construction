@@ -164,9 +164,8 @@ func _setup_audio() -> void:
 	sound.volume_db = -16
 	add_child(sound)
 	engine_audio = AudioStreamPlayer.new()
+	# Looping is set in the import settings of diesel.wav, not on the shared resource.
 	engine_audio.stream = load("res://assets/audio/diesel.wav")
-	engine_audio.stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
-	engine_audio.stream.loop_end = int(engine_audio.stream.get_length()*engine_audio.stream.mix_rate)
 	engine_audio.pitch_scale = 1.3
 	engine_audio.volume_db = -80
 	add_child(engine_audio)

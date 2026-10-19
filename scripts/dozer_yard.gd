@@ -65,6 +65,3 @@ func _rect(faces: PackedVector3Array, x0: float, x1: float, z0: float, z1: float
 
 func _delivery_bay() -> void:
 	pass
-
-func _process(_delta: float) -> void:
-	pass

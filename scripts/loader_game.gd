@@ -18,6 +18,7 @@ var animation := ""
 var animation_time := 0.0
 var transferred := false
 var stream: Node3D
+var capture_cycle := false
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -48,6 +49,7 @@ func _ready() -> void:
 	stream.visible = false
 	_setup_audio()
 	_update_hud()
+	capture_cycle = "--capture-cycle" in OS.get_cmdline_user_args()
 	if "--loader-test" in OS.get_cmdline_user_args():
 		var runner = load("res://tests/loader_test.gd").new()
 		runner.game = self
@@ -81,7 +83,7 @@ func _physics_process(delta: float) -> void:
 			if t>.3 and not transferred:
 				transferred = true
 				bucket_full = true
-				loader.held = true
+				loader.loaded = true
 				loader.model.set_load(1)
 				_play_sound("scoop")
 		"load":
@@ -90,7 +92,7 @@ func _physics_process(delta: float) -> void:
 			if t>.5 and not transferred:
 				transferred = true
 				bucket_full = false
-				loader.held = null
+				loader.loaded = false
 				truck_load += 1
 				loader.model.set_load(0)
 				truck.model.set_load(truck_load/3.0)
@@ -244,7 +246,7 @@ func _update_hud() -> void:
 
 func _notification(what: int) -> void:
 	# An automated render may lose focus while the test runner is working.
-	if "--capture-cycle" in OS.get_cmdline_user_args(): return
+	if capture_cycle: return
 	super._notification(what)
 
 func toggle_pause() -> void:
@@ -271,7 +273,7 @@ func reset_yard() -> void:
 func _capture_loader() -> void:
 	await get_tree().create_timer(2).timeout
 	await _save_capture("loader")
-	if "--capture-cycle" in OS.get_cmdline_user_args():
+	if capture_cycle:
 		for i in 3:
 			_action()
 			await _capture_wait_idle()

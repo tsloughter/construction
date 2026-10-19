@@ -87,7 +87,7 @@ func _delivery_bay() -> void:
 		for i in 6:
 			_block(p+Vector3(side*3.45,.072,-2.9+i*1.15),Vector3(.11,.025,.65),pale)
 			_block(p+Vector3(-2.9+i*1.15,.072,side*3.4),Vector3(.65,.025,.11),pale)
-	goal_star = _star(p+Vector3(0,2.35,-.3),.85,Geo.material(Color("ffdc63")))
+	goal_star = Geo.star(self,p+Vector3(0,2.35,-.3),.85,Geo.material(Color("ffdc63")))
 	goal_star.rotation_degrees.x = -25
 	# Cones sit behind the drive area, so automated carrying needs no path puzzle.
 	_cone(Vector3(3.2,0,-8.6))
@@ -252,6 +252,8 @@ func _lighting() -> void:
 	add_child(sun)
 
 func _process(delta: float) -> void:
+	# Yards without a floating goal star (the bulldozer site) have nothing to animate.
+	if goal_star == null: return
 	time += delta
 	goal_star.position.y = 2.35+sin(time*1.8)*.13
 	goal_star.rotation.z = sin(time*1.2)*.10
@@ -280,24 +282,4 @@ func _ball(pos: Vector3, dimensions: Vector3, mat: Material) -> MeshInstance3D:
 	add_child(instance)
 	instance.position = pos
 	instance.scale = dimensions
-	return instance
-
-func _star(pos: Vector3, radius: float, mat: Material) -> MeshInstance3D:
-	var surface := SurfaceTool.new()
-	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
-	for i in 10:
-		var a := -PI/2+TAU*i/10
-		var b := -PI/2+TAU*(i+1)/10
-		var ra := radius if i%2 == 0 else radius*.46
-		var rb := radius if (i+1)%2 == 0 else radius*.46
-		surface.add_vertex(Vector3.ZERO)
-		surface.add_vertex(Vector3(cos(b)*rb,-sin(b)*rb,0))
-		surface.add_vertex(Vector3(cos(a)*ra,-sin(a)*ra,0))
-	surface.generate_normals()
-	var instance := MeshInstance3D.new()
-	instance.mesh = surface.commit()
-	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	instance.material_override = mat
-	add_child(instance)
-	instance.position = pos
 	return instance

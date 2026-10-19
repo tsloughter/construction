@@ -17,7 +17,6 @@ var held
 var candidate
 var chosen
 var busy := false
-var controls_enabled := true
 var touch_direction := Vector2.ZERO
 var drive_speed := 0.0
 var moving := false
@@ -59,9 +58,8 @@ func _ready() -> void:
 	_solve_arm()
 
 func _physics_process(delta: float) -> void:
-	var keys := Input.get_vector("left","right","up","down") if controls_enabled else Vector2.ZERO
+	var keys := Input.get_vector("left","right","up","down")
 	var direction := keys if keys.length() > .05 else touch_direction
-	if not controls_enabled: direction = Vector2.ZERO
 	var travel := Vector3.ZERO
 	# Direction means direction on the screen. No reversing/steering distinction.
 	if direction.length() > .05 and mode in [Mode.IDLE,Mode.GO]:
@@ -107,8 +105,11 @@ func _physics_process(delta: float) -> void:
 		held.global_position = held.global_position.lerp(seat,minf(1,delta*18))
 	busy = mode not in [Mode.IDLE,Mode.GO]
 	_update_candidate()
-	if controls_enabled and Input.is_action_just_pressed("scoop"):
+	if Input.is_action_just_pressed("scoop"):
 		action()
+
+func has_load() -> bool:
+	return held != null
 
 func _step_job(delta: float) -> void:
 	match mode:
