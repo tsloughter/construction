@@ -1,14 +1,12 @@
-extends "res://scripts/yard.gd"
-
-const Layout = preload("res://scripts/dozer_layout.gd")
-const Hole = preload("res://scripts/fill_hole.gd")
+class_name DozerYard
+extends Yard
 
 func _ground() -> void:
 	# Layer 1 supports the vehicle everywhere. Rocks use the perforated layer 8.
 	super._ground()
 	var faces := PackedVector3Array()
 	# Three adjacent square patches, each with a circular opening.
-	for center in Layout.HOLES:
+	for center in DozerLayout.HOLES:
 		var angles: Array[float] = []
 		for i in 64: angles.append(TAU*i/64)
 		for x in [-3.0,3.0]:
@@ -19,7 +17,7 @@ func _ground() -> void:
 			var b := Vector3(cos(angles[(i+1)%angles.size()]),0,sin(angles[(i+1)%angles.size()]))
 			var outer_a := a*minf(3.0/maxf(.0001,absf(a.x)),2.8/maxf(.0001,absf(a.z)))
 			var outer_b := b*minf(3.0/maxf(.0001,absf(b.x)),2.8/maxf(.0001,absf(b.z)))
-			for p in [a*Layout.RADIUS,outer_a,outer_b,a*Layout.RADIUS,outer_b,b*Layout.RADIUS]: faces.append(center+p)
+			for p in [a*DozerLayout.RADIUS,outer_a,outer_b,a*DozerLayout.RADIUS,outer_b,b*DozerLayout.RADIUS]: faces.append(center+p)
 	_rect(faces,-16.5,-9,-16.6,12.4)
 	_rect(faces,9,16.5,-16.6,12.4)
 	_rect(faces,-9,9,-16.6,-7.2)
@@ -46,8 +44,8 @@ func _ground() -> void:
 	body.add_child(collider)
 	add_child(body)
 	for i in 3:
-		var hole := Hole.new()
-		hole.position = Layout.HOLES[i]
+		var hole := FillHole.new()
+		hole.position = DozerLayout.HOLES[i]
 		hole.name = "Hole%d"%(i+1)
 		add_child(hole)
 

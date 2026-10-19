@@ -1,11 +1,11 @@
-extends CharacterBody3D
+class_name Excavator
+extends Vehicle
 
 signal scooped
 signal dropped
 
-const Geo = preload("res://scripts/geometry.gd")
-const Play = preload("res://scripts/playground.gd")
 enum Mode { IDLE, GO, FACE, LOWER, CURL, LIFT, LOWER_DROP, TIP, FINISH_DROP }
+const START_YAW := -.48
 var mode := Mode.IDLE
 var model: Node3D
 var upper: Node3D
@@ -13,13 +13,9 @@ var boom: Node3D
 var stick: Node3D
 var bucket: Node3D
 var socket: Node3D
-var held
-var candidate
-var chosen
-var busy := false
-var touch_direction := Vector2.ZERO
-var drive_speed := 0.0
-var moving := false
+var held: Boulder
+var candidate: Boulder
+var chosen: Boulder
 var reach := 2.5
 var lift := 1.7
 var curl := 0.0
@@ -52,14 +48,16 @@ func _ready() -> void:
 	bucket = model.find_child("Bucket",true,false)
 	socket = model.find_child("CarrySocket",true,false)
 	_cache_wheels(model)
-	marker = Geo.ring(get_parent(),1.08,Color("618f91"),32)
-	move_marker = Geo.ring(get_parent(),.55,Color("ffffff"),24)
+	# Ground markers are top-level children: placed in world space, freed with the digger.
+	marker = Geo.ring(self,1.08,Color("618f91"),32)
+	marker.top_level = true
+	move_marker = Geo.ring(self,.55,Color("ffffff"),24)
+	move_marker.top_level = true
 	move_marker.visible = false
 	_solve_arm()
 
 func _physics_process(delta: float) -> void:
-	var keys := Input.get_vector("left","right","up","down")
-	var direction := keys if keys.length() > .05 else touch_direction
+	var direction := _input_direction()
 	var travel := Vector3.ZERO
 	# Direction means direction on the screen. No reversing/steering distinction.
 	if direction.length() > .05 and mode in [Mode.IDLE,Mode.GO]:
@@ -82,13 +80,7 @@ func _physics_process(delta: float) -> void:
 	if travel.length() > .01:
 		desired_yaw = atan2(-travel.x,-travel.z)
 		rotation.y = lerp_angle(rotation.y,desired_yaw,1-exp(-delta*8))
-	velocity.x = travel.x*3.0
-	velocity.z = travel.z*3.0
-	velocity.y = -1.0 if is_on_floor() else velocity.y-delta*9.8
-	move_and_slide()
-	position.x = clampf(position.x,-Play.DRIVE_X,Play.DRIVE_X)
-	position.z = clampf(position.z,-Play.DRIVE_Z,Play.DRIVE_Z)
-	drive_speed = Vector2(velocity.x,velocity.z).length()
+	_drive(travel,3.0,delta)
 	moving = drive_speed > .05
 	for wheel in wheels:
 		wheel.rotate_object_local(Vector3.UP,drive_speed*delta*1.3)
@@ -147,7 +139,7 @@ func _step_job(delta: float) -> void:
 				phase_time = 0
 		Mode.TIP:
 			if phase_time > .68:
-				var rock = held
+				var rock := held
 				held = null
 				rock.global_position = _lip_position()
 				rock.release_from_bucket(-global_basis.z*.3)
@@ -178,15 +170,15 @@ func _update_candidate() -> void:
 	candidate = null
 	var nearest := INF
 	if held == null and mode == Mode.IDLE:
-		for rock in get_tree().get_nodes_in_group("boulders"):
+		for rock: Boulder in get_tree().get_nodes_in_group("boulders"):
 			if rock.carried: continue
 			# Prefer an uncollected rock, but allow endless play with all of them.
-			var distance: float = global_position.distance_to(rock.global_position)+(30 if rock.rewarded else 0)
+			var distance := global_position.distance_to(rock.global_position)+(30 if rock.rewarded else 0)
 			if distance<nearest:
 				candidate = rock
 				nearest = distance
 	marker.visible = candidate != null or (chosen != null and next_job == "pick" and mode != Mode.IDLE and held == null)
-	var marked = candidate if candidate != null else chosen
+	var marked := candidate if candidate != null else chosen
 	if marker.visible and is_instance_valid(marked):
 		marker.global_position = Vector3(marked.position.x,.055,marked.position.z)
 		var pulse := 1.0+.05*sin(Time.get_ticks_msec()*.004)
@@ -204,7 +196,7 @@ func action() -> void:
 	elif candidate != null:
 		collect(candidate)
 
-func collect(rock) -> void:
+func collect(rock: Boulder) -> void:
 	if busy or held != null or not is_instance_valid(rock): return
 	chosen = rock
 	next_job = "pick"
@@ -221,7 +213,7 @@ func _plan_approach(point: Vector3) -> void:
 	var away := global_position-point
 	away.y = 0
 	if away.length() < .2: away = Vector3.BACK
-	destination = _clamp_ground(point+away.normalized()*4.05)
+	destination = Vehicle.clamp_to_yard(point+away.normalized()*4.05)
 	if global_position.distance_to(destination)<.2:
 		_begin_face()
 	else:
@@ -242,34 +234,29 @@ func _begin_face() -> void:
 
 func go_to(point: Vector3) -> void:
 	if busy: return
-	destination = _clamp_ground(point)
+	destination = Vehicle.clamp_to_yard(point)
 	next_job = ""
 	chosen = null
 	mode = Mode.GO
 	move_marker.visible = true
 	move_marker.global_position = destination+Vector3(0,.06,0)
 
-func _clamp_ground(point: Vector3) -> Vector3:
-	return Vector3(clampf(point.x,-Play.DRIVE_X,Play.DRIVE_X),0,clampf(point.z,-Play.DRIVE_Z,Play.DRIVE_Z))
-
-func cancel_movement() -> void:
-	touch_direction = Vector2.ZERO
+func cancel_movement(release_touch: bool = true) -> void:
+	super(release_touch)
 	if mode == Mode.GO:
 		mode = Mode.IDLE
 		move_marker.visible = false
-	velocity = Vector3.ZERO
 
 func reset_vehicle() -> void:
+	super()
 	held = null
 	chosen = null
 	candidate = null
 	mode = Mode.IDLE
 	busy = false
 	next_job = ""
-	touch_direction = Vector2.ZERO
-	position = Play.START
-	rotation = Vector3(0,-.48,0)
-	velocity = Vector3.ZERO
+	position = Playground.START
+	rotation = Vector3(0,START_YAW,0)
 	drive_speed = 0
 	lift = 1.7
 	reach = 2.5

@@ -59,7 +59,7 @@ Arrow input takes over from assisted driving immediately. Tipping and scooping a
 - A fixed camera makes the movement directions consistent.
 - Soft toy sounds and short chimes, with a sound toggle in the pause menu.
 
-The controls support mouse and Godot touchscreen input. Mouse and touch dispatch were tested in the engine; this project has not been exported or tested on a physical tablet.
+The controls support mouse and Godot touchscreen input. Keyboard actions are defined in the project's input map. Mouse and touch dispatch were tested in the engine; this project has not been exported or tested on a physical tablet.
 
 ## A real job site, drawn like toys
 
@@ -89,8 +89,10 @@ The launcher detects native Godot or the installed Godot Flatpak. Built and test
 | `project.godot` | Open this in Godot |
 | `scenes/opening.tscn` / `scripts/app.gd` | Opening screen and switching between independent game worlds |
 | `scripts/opening_menu.gd` / `scripts/game_card.gd` | Picture chooser with real Blender model previews |
+| `scripts/game_base.gd` | Shared frame for every game: camera, HUD wiring, pause, restart, sounds, test and capture hooks |
+| `scripts/vehicle.gd` | Shared driving state and helpers for the three machines |
 | `scenes/main.tscn` | Original excavator scene, also playable directly |
-| `scripts/main.gd` | Click/tap interaction, rewards, pause, reset, sounds |
+| `scripts/main.gd` | Excavator game: click/tap interaction and pebble rewards |
 | `scripts/bulldozer_game.gd` | Second game: rock selection, filled-hole rewards, and restart |
 | `scripts/loader_game.gd` | Third game: scooping, three-bucket truck loads, vehicle switching, hauling, tipping, and return |
 | `scripts/hauler_vehicle.gd` / `scripts/hauler_model.gd` | Shared loader/truck driving and original rounded vehicle models with moving bucket and bed |
@@ -112,6 +114,7 @@ The launcher detects native Godot or the installed Godot Flatpak. Built and test
 | `tools/build_site_props.py` | Regenerates the rounded site block |
 | `tools/build_assets.py` | Blender asset generator |
 | `tools/build_audio.py` | Original sound generator |
+| `tests/test_base.gd` | Shared test harness: checks, frame waits, and real mouse, touch, and keyboard dispatch |
 | `tests/gameplay_test.gd`, `tests/bulldozer_test.gd`, `tests/loader_test.gd`, `tests/menu_test.gd` | Excavator, pushing physics, hauling, and game-switching integration checks |
 
 The loader and truck are assembled at runtime from the shared rounded site-block mesh and generated wheel and dirt meshes; their editable model definition is `scripts/hauler_model.gd`.

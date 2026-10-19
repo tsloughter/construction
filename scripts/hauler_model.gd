@@ -1,7 +1,7 @@
+class_name HaulerModel
 extends Node3D
 
 # Original toy vehicles built from the same rounded block as the job-site props.
-const Geo = preload("res://scripts/geometry.gd")
 var kind := "loader"
 var arm: Node3D
 var bucket: Node3D

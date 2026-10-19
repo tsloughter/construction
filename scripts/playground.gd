@@ -1,3 +1,4 @@
+class_name Playground
 extends RefCounted
 
 const DROP_CENTER := Vector3(6.0, 0, -2.7)

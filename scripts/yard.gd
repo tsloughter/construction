@@ -1,7 +1,6 @@
+class_name Yard
 extends Node3D
 
-const Geo = preload("res://scripts/geometry.gd")
-const Play = preload("res://scripts/playground.gd")
 var goal_star: MeshInstance3D
 var block_mesh: Mesh
 var time := 0.0
@@ -78,10 +77,10 @@ func _base_ground() -> void:
 
 func _delivery_bay() -> void:
 	# Same radius, star and game rules; now a painted material bay on a slab.
-	var p := Play.DROP_CENTER
+	var p := Playground.DROP_CENTER
 	_block(p+Vector3(0,.025,0),Vector3(7.35,.065,7.25),concrete)
-	Geo.cylinder(self,p+Vector3(0,.068,0),Play.DROP_RADIUS,.018,Geo.material(Color("72c2a3")),-1,64)
-	var ring := Geo.ring(self,Play.DROP_RADIUS-.2,Color("eaf5d8"),36)
+	Geo.cylinder(self,p+Vector3(0,.068,0),Playground.DROP_RADIUS,.018,Geo.material(Color("72c2a3")),-1,64)
+	var ring := Geo.ring(self,Playground.DROP_RADIUS-.2,Color("eaf5d8"),36)
 	ring.position = p+Vector3(0,.09,0)
 	for side in [-1,1]:
 		for i in 6:

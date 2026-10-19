@@ -1,6 +1,7 @@
-extends "res://tests/gameplay_test.gd"
+extends GameTest
 
 func _run() -> void:
+	suite_name = "BULLDOZER TEST"
 	await _frames(90)
 	var v = game.vehicle
 	var rock = game.get_node("Pebble1")
@@ -56,19 +57,11 @@ func _run() -> void:
 	game.reset_yard()
 	await _frames(30)
 	_check(not get_tree().paused and v.mode == v.Mode.IDLE,"Restart during a paused push safely clears the assist")
-	var touch := InputEventScreenTouch.new()
-	touch.index = 0
-	touch.position = game.hud.arrows.right.get_global_rect().get_center()
-	touch.pressed = true
-	get_viewport().push_input(touch,true)
-	await _frames(20)
+	await _touch(0,game.hud.arrows.right.get_global_rect().get_center(),true)
+	await _frames(18)
 	_check(v.touch_direction.x>.9,"Bulldozer touch direction button drives")
-	touch = InputEventScreenTouch.new()
-	touch.index = 0
-	touch.position = Vector2(800,100)
-	touch.pressed = false
-	get_viewport().push_input(touch,true)
-	await _frames(4)
+	await _touch(0,Vector2(800,100),false)
+	await _frames(2)
 	_check(v.touch_direction == Vector2.ZERO and not v.moving,"Releasing touch outside the button stops")
 	rock.position = Vector3(30,-5,30)
 	await _frames(60)
@@ -76,7 +69,7 @@ func _run() -> void:
 	Input.action_press("right")
 	await _frames(420)
 	Input.action_release("right")
-	_check(v.position.x<=game.Play.DRIVE_X+.01,"Driving limits keep the bulldozer on screen")
+	_check(v.position.x<=Playground.DRIVE_X+.01,"Driving limits keep the bulldozer on screen")
 	game.reset_yard()
 	await _frames(45)
 	v.action()
@@ -97,7 +90,3 @@ func _run() -> void:
 	game.toggle_mute()
 	_check(game.muted and game.hud.muted,"Bulldozer sound toggle works")
 	_finish()
-
-func _finish() -> void:
-	print("BULLDOZER TEST: %d checks, %d failures"%[checks,failures.size()])
-	get_tree().quit(0 if failures.is_empty() else 1)

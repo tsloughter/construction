@@ -1,14 +1,7 @@
-extends "res://tests/gameplay_test.gd"
+extends GameTest
 
-func _click(point: Vector3) -> void:
-	var pos: Vector2 = game.camera.unproject_position(point)
-	for pressed in [true,false]:
-		var event := InputEventMouseButton.new()
-		event.position = pos
-		event.button_index = MOUSE_BUTTON_LEFT
-		event.pressed = pressed
-		get_viewport().push_input(event,true)
-		await _frames(2)
+func _click_world(point: Vector3) -> void:
+	await _click(game.camera.unproject_position(point))
 
 func _wait_idle() -> bool:
 	return await _until(func(): return not game.vehicle.navigating and game.animation.is_empty(),1500)
@@ -23,6 +16,7 @@ func _fill_truck() -> bool:
 	return game.truck_load == 3 and game.vehicle == game.truck
 
 func _run() -> void:
+	suite_name = "LOADER TEST"
 	await _frames(60)
 	_check(game.vehicle == game.loader and game.loader.model.bucket != null and game.truck.model.bed != null,"Loader and dump truck have distinct working models")
 	var camera_start: Transform3D = game.camera.global_transform
@@ -32,10 +26,10 @@ func _run() -> void:
 	Input.action_release("right")
 	await _frames(4)
 	_check(game.loader.position.x>start.x+1 and not game.loader.moving,"Arrows drive and release stops the loader")
-	_check(game.truck.position.distance_to(game.LoaderYard.TRUCK)<.1,"Parked truck stays put while the loader is driven")
+	_check(game.truck.position.distance_to(LoaderYard.TRUCK)<.1,"Parked truck stays put while the loader is driven")
 	game.reset_yard()
 	await _frames(10)
-	await _click(game.LoaderYard.DIRT+Vector3(0,.8,0))
+	await _click_world(LoaderYard.DIRT+Vector3(0,.8,0))
 	var done := await _wait_idle()
 	_check(done and game.bucket_full and game.loader.model.cargo.visible,"Clicking dirt drives over, scoops and raises a visible bucketful")
 	if not done: return _debug_finish()
@@ -46,7 +40,7 @@ func _run() -> void:
 	Input.action_release("left")
 	await _frames(4)
 	_check(game.bucket_full and game.loader.model.cargo.get_parent() == cargo_parent,"Dirt stays secured inside the bucket while driving")
-	await _click(game.truck.position+Vector3(0,1.4,.5))
+	await _click_world(game.truck.position+Vector3(0,1.4,.5))
 	done = await _wait_idle()
 	_check(done and not game.bucket_full and game.truck_load == 1 and game.truck.model.cargo.visible,"Clicking the truck tips the raised bucket into its bed")
 	_check(game.stars == 0 and game.vehicle == game.loader,"Partial loading keeps control of the loader and awards no delivery star")
@@ -68,7 +62,7 @@ func _run() -> void:
 	await _frames(4)
 	_check(game.truck.position.x>start.x+1 and game.loader.position.distance_to(parked)<.05,"The player drives the full truck independently of the parked loader")
 	_check(game.truck_load == 3 and game.deliveries == 0,"Driving a full truck keeps its load until an actual dump")
-	await _click(game.LoaderYard.DUMP+Vector3(0,2.35,.6))
+	await _click_world(LoaderYard.DUMP+Vector3(0,2.35,.6))
 	done = await _until(func(): return game.animation == "dump",1500)
 	_check(done and game.truck.position.distance_to(game.DUMP_SPOT)<.2,"Tapping the star drives the loaded truck to a separate dumping bay")
 	if not done: return _debug_finish()
@@ -86,7 +80,7 @@ func _run() -> void:
 	_check(game.stars == 1 and game.deliveries == 1,"A completed dump cannot award duplicate rewards")
 	await _tap("scoop")
 	done = await _wait_idle()
-	_check(done and game.vehicle == game.loader and game.truck.position.distance_to(game.LoaderYard.TRUCK)<.2,"Return assistance parks the empty truck and restores loader control")
+	_check(done and game.vehicle == game.loader and game.truck.position.distance_to(LoaderYard.TRUCK)<.2,"Return assistance parks the empty truck and restores loader control")
 	if not done: return _debug_finish()
 	for round_index in 2:
 		done = await _fill_truck()
@@ -129,17 +123,13 @@ func _run() -> void:
 	await _frames(10)
 	# The inherited HUD routes touch movement to whichever vehicle is active.
 	for pressed in [true,false]:
-		var touch := InputEventScreenTouch.new()
-		touch.index = 0
-		touch.position = game.hud.arrows.left.get_global_rect().get_center() if pressed else Vector2(700,200)
-		touch.pressed = pressed
-		get_viewport().push_input(touch,true)
-		await _frames(12)
+		await _touch(0,game.hud.arrows.left.get_global_rect().get_center() if pressed else Vector2(700,200),pressed)
+		await _frames(10)
 		_check(game.vehicle.touch_direction.x<-.9 if pressed else game.vehicle.touch_direction == Vector2.ZERO,"Touch direction presses and releases outside safely")
 	Input.action_press("left")
 	await _frames(300)
 	Input.action_release("left")
-	_check(game.loader.position.x>=-game.Play.DRIVE_X-.01,"Driving limits keep the loader in view")
+	_check(game.loader.position.x>=-Playground.DRIVE_X-.01,"Driving limits keep the loader in view")
 	game.toggle_mute()
 	_check(game.muted and game.hud.muted,"Loader game shares the parent sound controls")
 	_finish()
@@ -148,7 +138,3 @@ func _debug_finish() -> void:
 	_check(false,"Hauling sequence completed within the time limit")
 	print("HAUL DEBUG: intent ",game.intent," animation ",game.animation," vehicle ",game.vehicle.kind," position ",game.vehicle.position," waypoints ",game.vehicle.waypoints)
 	_finish()
-
-func _finish() -> void:
-	print("LOADER TEST: %d checks, %d failures"%[checks,failures.size()])
-	get_tree().quit(0 if failures.is_empty() else 1)

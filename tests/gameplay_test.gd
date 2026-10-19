@@ -1,37 +1,7 @@
-extends Node
-
-var game
-var failures: Array[String] = []
-var checks := 0
-
-func _ready() -> void:
-	_run.call_deferred()
-
-func _check(condition: bool, description: String) -> void:
-	checks += 1
-	if condition: print("PASS: ",description)
-	else:
-		failures.append(description)
-		push_error("FAIL: "+description)
-
-func _frames(count: int) -> void:
-	for i in count: await get_tree().physics_frame
-
-func _until(predicate: Callable, maximum: int = 900) -> bool:
-	for i in maximum:
-		if predicate.call():
-			await _frames(3)
-			return true
-		await _frames(1)
-	return false
-
-func _tap(action: String) -> void:
-	Input.action_press(action)
-	await _frames(2)
-	Input.action_release(action)
-	await _frames(2)
+extends GameTest
 
 func _run() -> void:
+	suite_name = "LITTLE DIGGER TEST"
 	await _frames(90)
 	var v = game.vehicle
 	var rock = game.get_node("Pebble1")
@@ -54,33 +24,17 @@ func _run() -> void:
 	game.reset_yard()
 	await _frames(60)
 	# Real GUI dispatch for both mouse and touch, including releases outside.
-	var mouse := InputEventMouseButton.new()
-	mouse.button_index = MOUSE_BUTTON_LEFT
-	mouse.position = game.hud.arrows.right.get_global_rect().get_center()
-	mouse.pressed = true
-	get_viewport().push_input(mouse,true)
-	await _frames(30)
+	await _mouse(game.hud.arrows.right.get_global_rect().get_center(),true)
+	await _frames(28)
 	_check(v.touch_direction.x>.9,"Mouse press activates the large direction button")
-	mouse = InputEventMouseButton.new()
-	mouse.button_index = MOUSE_BUTTON_LEFT
-	mouse.position = Vector2(700,200)
-	mouse.pressed = false
-	get_viewport().push_input(mouse,true)
-	await _frames(4)
+	await _mouse(Vector2(700,200),false)
+	await _frames(2)
 	_check(v.touch_direction == Vector2.ZERO,"Mouse release outside a button never sticks")
-	var touch := InputEventScreenTouch.new()
-	touch.index = 0
-	touch.position = game.hud.arrows.left.get_global_rect().get_center()
-	touch.pressed = true
-	get_viewport().push_input(touch,true)
-	await _frames(12)
+	await _touch(0,game.hud.arrows.left.get_global_rect().get_center(),true)
+	await _frames(10)
 	_check(v.touch_direction.x<-.9,"Touch press activates a direction button")
-	touch = InputEventScreenTouch.new()
-	touch.index = 0
-	touch.position = Vector2(800,100)
-	touch.pressed = false
-	get_viewport().push_input(touch,true)
-	await _frames(4)
+	await _touch(0,Vector2(800,100),false)
+	await _frames(2)
 	_check(v.touch_direction == Vector2.ZERO,"Touch release outside a button never sticks")
 	game.reset_yard()
 	await _frames(60)
@@ -114,7 +68,7 @@ func _run() -> void:
 			print("Pickup state: ",v.mode," machine ",v.position," rock ",pebble.position," socket ",v.socket.global_position)
 			_finish()
 			return
-		game.pointer_action(game.camera.unproject_position(game.Play.DROP_CENTER+Vector3(0,2.35,-.3)))
+		game.pointer_action(game.camera.unproject_position(Playground.DROP_CENTER+Vector3(0,2.35,-.3)))
 		var delivered := await _until(func(): return pebble.rewarded,1200)
 		_check(delivered,"Clicking the star carries and gently drops pebble %d into the garden"%(i+1))
 		if not delivered:
@@ -157,11 +111,7 @@ func _run() -> void:
 	Input.action_press("right")
 	await _frames(420)
 	Input.action_release("right")
-	_check(v.position.x<=game.Play.DRIVE_X+.01,"Holding an arrow cannot drive out of the sandbox")
+	_check(v.position.x<=Playground.DRIVE_X+.01,"Holding an arrow cannot drive out of the sandbox")
 	game.toggle_mute()
 	_check(game.muted and game.hud.muted,"Parent sound toggle updates audio and its picture button")
 	_finish()
-
-func _finish() -> void:
-	print("LITTLE DIGGER TEST: %d checks, %d failures"%[checks,failures.size()])
-	get_tree().quit(0 if failures.is_empty() else 1)

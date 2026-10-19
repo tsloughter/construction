@@ -19,9 +19,11 @@ case "${1:-play}" in
     ;;
   test|--test)
     "${engine[@]}" --headless --path "$PWD" --editor --import
+    status=0
     for suite in --smoke-test --bulldozer-test --loader-test --menu-test; do
-      "${engine[@]}" --headless --path "$PWD" --fixed-fps 60 -- "$suite"
+      "${engine[@]}" --headless --path "$PWD" --fixed-fps 60 -- "$suite" || status=1
     done
+    exit "$status"
     ;;
   capture|--capture)
     "${engine[@]}" --headless --path "$PWD" --editor --import

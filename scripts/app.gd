@@ -1,11 +1,9 @@
+class_name GameApp
 extends Node
 
-const Menu = preload("res://scripts/opening_menu.gd")
-const ExcavatorGame = preload("res://scripts/main.gd")
-const LoaderGame = preload("res://scripts/loader_game.gd")
-const BulldozerGame = preload("res://scripts/bulldozer_game.gd")
-var active_game
-var menu
+# Switches between the opening picture screen and one independent game world.
+var active_game: GameBase
+var menu: OpeningMenu
 var menu_layer: CanvasLayer
 var current_mode := "menu"
 var muted := false
@@ -13,29 +11,26 @@ var switching := false
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	var args := OS.get_cmdline_user_args()
-	if "--smoke-test" in args or "--excavator" in args or "--capture-loaded" in args:
+	if GameBase.has_flag("--smoke-test") or GameBase.has_flag("--excavator") or GameBase.has_flag("--capture-loaded"):
 		start_game("excavator")
-	elif "--bulldozer" in args or "--bulldozer-test" in args:
+	elif GameBase.has_flag("--bulldozer") or GameBase.has_flag("--bulldozer-test"):
 		start_game("bulldozer")
-	elif "--loader" in args or "--loader-test" in args:
+	elif GameBase.has_flag("--loader") or GameBase.has_flag("--loader-test"):
 		start_game("loader")
 	else:
 		show_menu()
-		if "--capture" in args: _capture_menu()
-		if "--menu-test" in args:
-			var runner = load("res://tests/menu_test.gd").new()
-			runner.app = self
+		if GameBase.has_flag("--capture"): _capture_menu()
+		if GameBase.has_flag("--menu-test"):
+			var runner: Node = load("res://tests/menu_test.gd").new()
+			runner.set("app",self)
 			add_child(runner)
 
 func _clear() -> void:
 	get_tree().paused = false
-	for action in ["up","down","left","right","scoop"]:
-		if InputMap.has_action(action): Input.action_release(action)
+	for action in ["up","down","left","right","scoop"]: Input.action_release(action)
 	if is_instance_valid(active_game):
 		muted = active_game.muted
 		active_game.hud.release_buttons()
-		active_game._shutdown_audio()
 		remove_child(active_game)
 		active_game.queue_free()
 	active_game = null
@@ -62,7 +57,7 @@ func show_menu() -> void:
 	current_mode = "menu"
 	menu_layer = CanvasLayer.new()
 	add_child(menu_layer)
-	menu = Menu.new()
+	menu = OpeningMenu.new()
 	menu_layer.add_child(menu)
 	menu.game_selected.connect(_request_game)
 	switching = false

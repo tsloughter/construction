@@ -1,45 +1,24 @@
-extends Control
+class_name ToyButton
+extends BaseButton
 
-signal activated
+# A large picture button. BaseButton supplies press-on-down, release
+# tracking, disabling and touch (via mouse emulation); this draws the toy face.
 signal held_changed(held: bool)
-var icon := "up"
-var color := Color("ffffff")
-var down := false
-var touch_id := -1
-var disabled := false
-var pebble_color := Color("cd9feb")
+
 const INK := Color("35506a")
+var icon := "up"
+var color := Color.WHITE
+var pebble_color := Color("cd9feb")
+var down := false
 
 func _ready() -> void:
-	mouse_filter = Control.MOUSE_FILTER_STOP
+	action_mode = BaseButton.ACTION_MODE_BUTTON_PRESS
+	focus_mode = Control.FOCUS_NONE
 	mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-
-func _gui_input(event: InputEvent) -> void:
-	if disabled: return
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
-		_set_down(event.pressed)
-		if event.pressed: activated.emit()
-		accept_event()
-	if event is InputEventScreenTouch:
-		if event.pressed and touch_id == -1:
-			touch_id = event.index
-			_set_down(true)
-			activated.emit()
-		elif not event.pressed and event.index == touch_id:
-			touch_id = -1
-			_set_down(false)
-		accept_event()
-
-func _input(event: InputEvent) -> void:
-	# Releases outside the button must never leave a direction held down.
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
-		_set_down(false)
-	if event is InputEventScreenTouch and not event.pressed and event.index == touch_id:
-		touch_id = -1
-		_set_down(false)
+	button_down.connect(_set_down.bind(true))
+	button_up.connect(_set_down.bind(false))
 
 func release() -> void:
-	touch_id = -1
 	_set_down(false)
 
 func _set_down(value: bool) -> void:

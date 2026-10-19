@@ -1,28 +1,29 @@
-extends "res://scripts/main.gd"
+class_name LoaderGame
+extends GameBase
 
-const Hauler = preload("res://scripts/hauler_vehicle.gd")
-const LoaderYard = preload("res://scripts/loader_yard.gd")
-const HaulerModel = preload("res://scripts/hauler_model.gd")
+# Load & haul: scoop three bucketfuls into the truck, then drive it to the bay.
 const LOADER_START := Vector3(-6,0,3)
 const SCOOP_SPOT := Vector3(-7,0,-.1)
 const LOAD_SPOT := Vector3(-3.35,0,-.2)
 const DUMP_SPOT := Vector3(7,0,-5.5)
-var loader
-var truck
-var yard
+const ANIMATION_SECONDS := 2.1
+var loader: HaulerVehicle
+var truck: HaulerVehicle
+var yard: LoaderYard
 var bucket_full := false
 var truck_load := 0
 var deliveries := 0
 var intent := ""
 var animation := ""
-var animation_time := 0.0
 var transferred := false
 var stream: Node3D
+var tween: Tween
 var capture_cycle := false
 
-func _ready() -> void:
-	process_mode = Node.PROCESS_MODE_ALWAYS
-	_register_inputs()
+func _build_world() -> void:
+	test_flag = "--loader-test"
+	test_script = "res://tests/loader_test.gd"
+	capture_cycle = has_flag("--capture-cycle")
 	yard = LoaderYard.new()
 	yard.process_mode = Node.PROCESS_MODE_PAUSABLE
 	add_child(yard)
@@ -30,34 +31,17 @@ func _ready() -> void:
 	truck = _make_vehicle("truck",LoaderYard.TRUCK)
 	vehicle = loader
 	loader.active = true
-	camera = CameraRig.new()
-	add_child(camera)
-	var canvas := CanvasLayer.new()
-	add_child(canvas)
-	hud = Hud.new()
-	hud.vehicle = vehicle
-	hud.loader_mode = true
-	canvas.add_child(hud)
-	hud.action_requested.connect(_action)
-	hud.direction_changed.connect(func(direction: Vector2): vehicle.touch_direction = direction)
-	hud.pause_requested.connect(toggle_pause)
-	hud.reset_requested.connect(reset_yard)
-	hud.mute_requested.connect(toggle_mute)
-	hud.menu_requested.connect(func(): menu_requested.emit())
+	# The falling-dirt stream is pausable, and its tweens pause with it.
 	stream = HaulerModel.dirt_clumps(self,Vector3.ZERO,Vector3(.22,.7,.22),8)
 	stream.process_mode = Node.PROCESS_MODE_PAUSABLE
 	stream.visible = false
-	_setup_audio()
-	_update_hud()
-	capture_cycle = "--capture-cycle" in OS.get_cmdline_user_args()
-	if "--loader-test" in OS.get_cmdline_user_args():
-		var runner = load("res://tests/loader_test.gd").new()
-		runner.game = self
-		add_child(runner)
-	if "--capture" in OS.get_cmdline_user_args(): _capture_loader()
 
-func _make_vehicle(kind: String, at: Vector3):
-	var machine := Hauler.new()
+func _configure_hud() -> void:
+	hud.loader_mode = true
+	_update_hud()
+
+func _make_vehicle(kind: String, at: Vector3) -> HaulerVehicle:
+	var machine := HaulerVehicle.new()
 	machine.name = "Loader" if kind == "loader" else "DumpTruck"
 	machine.kind = kind
 	machine.position = at
@@ -68,15 +52,11 @@ func _make_vehicle(kind: String, at: Vector3):
 	machine.manual_takeover.connect(func(): intent = "")
 	return machine
 
-func _process(_delta: float) -> void:
-	if hud == null: return
+func _process(delta: float) -> void:
+	super(delta)
 	_update_hud()
-	if engine_audio: engine_audio.volume_db = -80 if muted or not vehicle.moving else -38
 
-func _physics_process(delta: float) -> void:
-	if get_tree().paused or animation.is_empty(): return
-	animation_time += delta
-	var t := clampf(animation_time/2.1,0,1)
+func _animate(t: float) -> void:
 	match animation:
 		"scoop":
 			loader.model.set_lift(smoothstep(.25,1,t)*.85)
@@ -109,7 +89,6 @@ func _physics_process(delta: float) -> void:
 				hud.stars = stars
 				yard.show_deliveries(deliveries)
 				_play_sound("star")
-	if t>=1: _finish_animation()
 
 func _stream_between(from: Vector3, to: Vector3, t: float) -> void:
 	stream.visible = t>.22 and t<.8
@@ -139,20 +118,17 @@ func load_truck() -> void:
 func drive_to_dump() -> void:
 	if vehicle != truck or vehicle.busy or truck_load != 3: return
 	intent = "dump"
-	if _distance(truck.position,DUMP_SPOT)<1.25:
-		_navigate(truck,[DUMP_SPOT],0)
-	else:
-		_navigate(truck,[Vector3(3.6,0,2.8),Vector3(7,0,2.8),DUMP_SPOT],0)
+	_navigate(truck,[DUMP_SPOT] if _distance(truck.position,DUMP_SPOT)<1.25 else [Vector3(3.6,0,2.8),Vector3(7,0,2.8),DUMP_SPOT],0)
 
 func return_truck() -> void:
 	if vehicle != truck or vehicle.busy or truck_load != 0: return
 	intent = "return"
 	_navigate(truck,[Vector3(7,0,2.8),Vector3(0,0,2.8),LoaderYard.TRUCK],0)
 
-func _navigate(machine, points: Array, yaw: float) -> void:
+func _navigate(machine: HaulerVehicle, points: Array, yaw: float) -> void:
 	# If free driving left us across the parked vehicle, go around its outside
 	# and use the broad entrance lane before joining the normal approach.
-	var other = truck if machine == loader else loader
+	var other := truck if machine == loader else loader
 	var start := Vector2(machine.position.x,machine.position.z)
 	var first := Vector2(points[0].x,points[0].z)
 	var obstacle := Vector2(other.position.x,other.position.z)
@@ -174,13 +150,17 @@ func _arrived() -> void:
 		hud.celebrate("Ready for more dirt!")
 	elif job in ["scoop","load","dump"]:
 		animation = job
-		animation_time = 0
 		transferred = false
 		vehicle.busy = true
+		tween = stream.create_tween()
+		tween.set_process_mode(Tween.TWEEN_PROCESS_PHYSICS)
+		tween.tween_method(_animate,0.0,1.0,ANIMATION_SECONDS)
+		tween.tween_callback(_finish_animation)
 
 func _finish_animation() -> void:
 	var finished := animation
 	animation = ""
+	tween = null
 	vehicle.busy = false
 	stream.visible = false
 	if finished == "load":
@@ -193,13 +173,13 @@ func _finish_animation() -> void:
 		truck.model.bed.rotation.x = 0
 		hud.celebrate("Hooray! You delivered!")
 
-func _switch_vehicle(next) -> void:
+func _switch_vehicle(next: HaulerVehicle) -> void:
 	hud.release_buttons()
 	vehicle.cancel_movement()
-	vehicle.active = false
+	(vehicle as HaulerVehicle).active = false
 	vehicle = next
-	vehicle.active = true
-	hud.vehicle = vehicle
+	next.active = true
+	hud.vehicle = next
 
 func pointer_action(screen_position: Vector2) -> void:
 	if vehicle.busy: return
@@ -217,8 +197,8 @@ func pointer_action(screen_position: Vector2) -> void:
 		if truck_load == 0 and _near_screen(LoaderYard.TRUCK,screen_position,100):
 			return_truck()
 			return
-	var hit: Variant = Plane(Vector3.UP,0).intersects_ray(camera.project_ray_origin(screen_position),camera.project_ray_normal(screen_position))
-	if hit != null and absf(hit.x)<12 and absf(hit.z)<8.5:
+	var hit: Variant = ground_point(screen_position)
+	if hit != null and in_yard(hit):
 		intent = ""
 		vehicle.go_to(hit)
 
@@ -245,18 +225,19 @@ func _update_hud() -> void:
 		hud.hauler_icon = "reset"
 
 func _notification(what: int) -> void:
-	# An automated render may lose focus while the test runner is working.
+	# An automated render may lose focus while the capture script is working.
 	if capture_cycle: return
-	super._notification(what)
+	super(what)
 
 func toggle_pause() -> void:
 	intent = ""
-	super.toggle_pause()
+	super()
 
 func reset_yard() -> void:
 	intent = ""
 	animation = ""
-	animation_time = 0
+	if tween: tween.kill()
+	tween = null
 	bucket_full = false
 	truck_load = 0
 	deliveries = 0
@@ -267,36 +248,36 @@ func reset_yard() -> void:
 	_switch_vehicle(loader)
 	yard.show_deliveries(0)
 	stream.visible = false
-	super.reset_yard()
+	super()
 	_update_hud()
 
-func _capture_loader() -> void:
+func _capture() -> void:
 	await get_tree().create_timer(2).timeout
-	await _save_capture("loader")
+	await _capture_screen("res://screenshots/loader.png")
 	if capture_cycle:
 		for i in 3:
 			_action()
 			await _capture_wait_idle()
-			if i == 0: await _save_capture("loader-scooped")
+			if i == 0: await _capture_screen("res://screenshots/loader-scooped.png")
 			_action()
 			if i == 0:
 				if not await _capture_wait_animation("load"): return
 				await get_tree().create_timer(1.1).timeout
-				await _save_capture("loader-loading")
+				await _capture_screen("res://screenshots/loader-loading.png")
 			await _capture_wait_idle()
-		await _save_capture("loader-full-truck")
+		await _capture_screen("res://screenshots/loader-full-truck.png")
 		_action()
 		if not await _capture_wait_animation("dump"): return
 		await get_tree().create_timer(.9).timeout
-		await _save_capture("loader-tipping")
+		await _capture_screen("res://screenshots/loader-tipping.png")
 		await _capture_wait_idle()
-		await _save_capture("loader-delivered")
+		await _capture_screen("res://screenshots/loader-delivered.png")
 	_shutdown_audio()
 	get_tree().quit()
 
 func _capture_wait_idle() -> void:
 	for i in 3000:
-		if not vehicle.navigating and animation.is_empty(): return
+		if not (vehicle as HaulerVehicle).navigating and animation.is_empty(): return
 		await get_tree().physics_frame
 	push_error("Capture timed out during hauling")
 	get_tree().quit(1)
@@ -308,7 +289,3 @@ func _capture_wait_animation(job: String) -> bool:
 	push_error("Capture timed out waiting for "+job)
 	get_tree().quit(1)
 	return false
-
-func _save_capture(label: String) -> void:
-	await RenderingServer.frame_post_draw
-	get_viewport().get_texture().get_image().save_png("res://screenshots/"+label+".png")

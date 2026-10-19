@@ -1,9 +1,13 @@
-extends "res://scripts/boulder.gd"
+class_name PushBoulder
+extends Boulder
+
+# Emitted once by the hole that swallowed this boulder.
+signal dropped_in_hole
 
 var completed := false
 
 func _ready() -> void:
-	super._ready()
+	super()
 	mass = 4
 	collision_mask = 14
 	linear_damp = .9
@@ -13,16 +17,19 @@ func _ready() -> void:
 
 func _physics_process(_delta: float) -> void:
 	if completed: return
-	for hole in get_tree().get_nodes_in_group("holes"):
-		if hole.filled: continue
-		var offset := Vector2(global_position.x-hole.global_position.x,global_position.z-hole.global_position.z)
-		if offset.length()<1.25 and global_position.y<-.58:
-			hole.fill(self)
-			return
 	if position.y < -3 or absf(position.x)>11.5 or absf(position.z)>8:
 		reset_rock()
 
+func complete() -> void:
+	completed = true
+	freeze = true
+	collision_layer = 0
+	collision_mask = 0
+	linear_velocity = Vector3.ZERO
+	angular_velocity = Vector3.ZERO
+	dropped_in_hole.emit()
+
 func reset_rock(clear_reward: bool = true) -> void:
 	completed = false
-	super.reset_rock(clear_reward)
+	super(clear_reward)
 	collision_mask = 14

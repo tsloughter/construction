@@ -1,13 +1,17 @@
-extends "res://scripts/toy_button.gd"
+class_name GameCard
+extends ToyButton
 
-const Geo = preload("res://scripts/geometry.gd")
+# One opening-screen picture: a live model preview with a big PLAY pill.
 const BOLD = preload("res://assets/fonts/Roboto-Bold.ttf")
-const FONT = preload("res://assets/fonts/Roboto-Regular.ttf")
+const EXCAVATOR_SCENE := preload("res://assets/models/excavator.glb")
+const BULLDOZER_SCENE := preload("res://assets/models/bulldozer.glb")
+const TITLES := {"excavator":"EXCAVATOR","bulldozer":"BULLDOZER","loader":"LOADER + TRUCK"}
+const TAGLINES := {"excavator":"Scoop & carry","bulldozer":"Push & fill","loader":"Load & haul"}
 var kind := "excavator"
 var selected := false
 
 func _ready() -> void:
-	super._ready()
+	super()
 	var container := SubViewportContainer.new()
 	container.position = Vector2(18,72)
 	container.size = Vector2(504,315)
@@ -36,16 +40,16 @@ func _ready() -> void:
 	sun.shadow_enabled = true
 	world.add_child(sun)
 	var model: Node3D
-	if kind == "loader":
-		model = preload("res://scripts/hauler_model.gd").new()
-	else:
-		model = load("res://assets/models/"+("excavator" if kind == "excavator" else "bulldozer")+".glb").instantiate()
+	match kind:
+		"loader": model = HaulerModel.new()
+		"excavator": model = EXCAVATOR_SCENE.instantiate()
+		_: model = BULLDOZER_SCENE.instantiate()
 	world.add_child(model)
 	model.rotation.y = .15 if kind != "excavator" else -.2
 	if kind == "loader":
 		model.position.x = -1.2
 		model.scale = Vector3.ONE*.75
-		var truck = preload("res://scripts/hauler_model.gd").new()
+		var truck := HaulerModel.new()
 		truck.kind = "truck"
 		world.add_child(truck)
 		truck.position = Vector3(1.6,0,.3)
@@ -72,8 +76,8 @@ func _draw() -> void:
 	style.border_color = Color("e3ab43") if selected else Color("f2e7cb")
 	style.set_border_width_all(5 if selected else 2)
 	draw_style_box(style,Rect2(Vector2.ZERO,size))
-	_center({"excavator":"EXCAVATOR","bulldozer":"BULLDOZER","loader":"LOADER + TRUCK"}[kind],Vector2(270,51),25,INK)
-	_center({"excavator":"Scoop & carry","bulldozer":"Push & fill","loader":"Load & haul"}[kind],Vector2(270,399),30,INK)
+	_center(TITLES[kind],Vector2(270,51),25,INK)
+	_center(TAGLINES[kind],Vector2(270,399),30,INK)
 	style.set_border_width_all(0)
 	style.set_corner_radius_all(23)
 	style.bg_color = Color("b6dcb5") if kind == "excavator" else Color("ffd17b")

@@ -1,6 +1,9 @@
+class_name Boulder
 extends RigidBody3D
 
-const Play = preload("res://scripts/playground.gd")
+# Reports once when the pebble has come to rest inside the material bay.
+signal settled
+
 var carried := false
 var ever_carried := false
 var rewarded := false
@@ -25,7 +28,7 @@ func _ready() -> void:
 	add_child(art)
 	var mesh_instance := _find_mesh(art)
 	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Play.COLORS[rock_id]
+	mat.albedo_color = Playground.COLORS[rock_id]
 	mat.roughness = .9
 	mesh_instance.material_override = mat
 	var collider := CollisionShape3D.new()
@@ -82,10 +85,12 @@ func _physics_process(delta: float) -> void:
 	# A lost toy quietly comes back. Children never need a recovery command.
 	if position.y < -3 or absf(position.x)>11.5 or absf(position.z)>8.0:
 		reset_rock(false)
-	var offset := Vector2(position.x-Play.DROP_CENTER.x,position.z-Play.DROP_CENTER.z)
-	if ever_carried and offset.length()<Play.DROP_RADIUS and position.y<3 and linear_velocity.length()<.5:
+	var offset := Vector2(position.x-Playground.DROP_CENTER.x,position.z-Playground.DROP_CENTER.z)
+	if ever_carried and offset.length()<Playground.DROP_RADIUS and position.y<3 and linear_velocity.length()<.5:
 		settle_time += delta
-		settled_in_garden = settle_time>.4
+		if not settled_in_garden and settle_time>.4:
+			settled_in_garden = true
+			settled.emit()
 	else:
 		settle_time = 0
 		settled_in_garden = false

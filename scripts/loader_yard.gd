@@ -1,6 +1,6 @@
-extends "res://scripts/yard.gd"
+class_name LoaderYard
+extends Yard
 
-const HaulerModel = preload("res://scripts/hauler_model.gd")
 const DIRT := Vector3(-7,0,-3)
 const TRUCK := Vector3(0,0,-1)
 const DUMP := Vector3(7,0,-3.2)

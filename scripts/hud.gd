@@ -1,17 +1,21 @@
+class_name Hud
 extends Control
 
+# Picture controls, keepsake stars and the parent menu. The project's
+# canvas_items stretch mode handles window sizes, so everything is laid out
+# in the 1440x900 design space.
 signal action_requested
 signal direction_changed(direction: Vector2)
 signal pause_requested
 signal reset_requested
 signal menu_requested
 signal mute_requested
-const ToyButton = preload("res://scripts/toy_button.gd")
+
 const INK := Color("35506a")
 const CREAM := Color("fffaed")
 const BOLD = preload("res://assets/fonts/Roboto-Bold.ttf")
 const FONT = preload("res://assets/fonts/Roboto-Regular.ttf")
-var vehicle
+var vehicle: Vehicle
 var bulldozer_mode := false
 var loader_mode := false
 var load_count := 0
@@ -19,53 +23,50 @@ var hauler_title := "little loader"
 var hauler_action := "SCOOP"
 var hauler_hint := ""
 var hauler_icon := "scoop"
-var home_button
-var menu_button
+var home_button: ToyButton
+var menu_button: ToyButton
 var stars := 0
 var celebration_time := 0.0
 var happy_text := ""
-var buttons: Array[Control] = []
+var buttons: Array[ToyButton] = []
 var arrows: Dictionary = {}
-var action_button
-var pause_button
-var resume_button
-var reset_button
-var mute_button
+var action_button: ToyButton
+var pause_button: ToyButton
+var resume_button: ToyButton
+var reset_button: ToyButton
+var mute_button: ToyButton
 var muted := false
-var ui_scale := 1.0
-var ui_offset := Vector2.ZERO
 var paused := false
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	for item in [["up",Vector2(116,735),Vector2(0,-1)],["left",Vector2(34,812),Vector2(-1,0)],["down",Vector2(116,812),Vector2(0,1)],["right",Vector2(198,812),Vector2(1,0)]]:
-		var button = _button(item[1],Vector2(74,72),item[0],CREAM)
+	for item in [["up",Vector2(116,735)],["left",Vector2(34,812)],["down",Vector2(116,812)],["right",Vector2(198,812)]]:
+		var button := _button(item[1],Vector2(74,72),item[0],CREAM)
 		arrows[item[0]] = button
-		button.held_changed.connect(func(_held: bool): _emit_direction())
+		button.held_changed.connect(_emit_direction.unbind(1))
 	action_button = _button(Vector2(1200,730),Vector2(192,149),"scoop",Color("ffcf69"))
-	action_button.activated.connect(func(): action_requested.emit())
+	action_button.pressed.connect(action_requested.emit)
 	pause_button = _button(Vector2(1340,38),Vector2(60,60),"pause",CREAM)
-	pause_button.activated.connect(func(): pause_requested.emit())
+	pause_button.pressed.connect(pause_requested.emit)
 	home_button = _button(Vector2(1260,38),Vector2(60,60),"home",CREAM)
-	home_button.activated.connect(func(): menu_requested.emit())
+	home_button.pressed.connect(menu_requested.emit)
 	menu_button = _button(Vector2(675,528),Vector2(90,80),"home",Color("c8d8ef"))
-	menu_button.activated.connect(func(): menu_requested.emit())
+	menu_button.pressed.connect(menu_requested.emit)
 	resume_button = _button(Vector2(667,381),Vector2(106,92),"play",Color("b5dfb6"))
-	resume_button.activated.connect(func(): pause_requested.emit())
+	resume_button.pressed.connect(pause_requested.emit)
 	reset_button = _button(Vector2(525,528),Vector2(90,80),"reset",Color("ffdc86"))
-	reset_button.activated.connect(func(): reset_requested.emit())
+	reset_button.pressed.connect(reset_requested.emit)
 	mute_button = _button(Vector2(825,528),Vector2(90,80),"sound",Color("b5dced"))
-	mute_button.activated.connect(func(): mute_requested.emit())
+	mute_button.pressed.connect(mute_requested.emit)
 
-func _button(pos: Vector2, dimensions: Vector2, icon: String, color: Color) -> Control:
+func _button(pos: Vector2, dimensions: Vector2, icon: String, color: Color) -> ToyButton:
 	var button := ToyButton.new()
 	button.position = pos
 	button.size = dimensions
 	button.icon = icon
 	button.color = color
-	button.set_meta("home",pos)
 	add_child(button)
 	buttons.append(button)
 	return button
@@ -85,13 +86,6 @@ func celebrate(text: String) -> void:
 func _process(delta: float) -> void:
 	paused = get_tree().paused
 	if not paused: celebration_time = maxf(0,celebration_time-delta)
-	var view := get_viewport_rect().size
-	ui_scale = minf(view.x/1440.0,view.y/900.0)
-	ui_offset = (view-Vector2(1440,900)*ui_scale)/2
-	for button in buttons:
-		button.position = ui_offset+(button.get_meta("home") as Vector2)*ui_scale
-		button.scale = Vector2.ONE*ui_scale
-		button.queue_redraw()
 	for button in arrows.values(): button.visible = not paused
 	action_button.visible = not paused
 	pause_button.visible = not paused
@@ -107,10 +101,10 @@ func _process(delta: float) -> void:
 		action_button.pebble_color = Color("a97950")
 	action_button.disabled = vehicle.busy
 	action_button.color = Color("a5dbb2") if vehicle.has_load() else Color("ffcf69")
+	for button in buttons: button.queue_redraw()
 	queue_redraw()
 
 func _draw() -> void:
-	draw_set_transform(ui_offset,0,Vector2.ONE*ui_scale)
 	_panel(Rect2(25,26,324,104),Color(CREAM,.94),24)
 	_text(hauler_title if loader_mode else ("little dozer" if bulldozer_mode else "little digger"),Vector2(42,80),42,INK,BOLD)
 	_text(("Truck: %d / 3 bucketfuls"%load_count) if loader_mode else "Let's build something!",Vector2(44,111),18,INK)

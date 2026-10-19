@@ -1,7 +1,6 @@
+class_name FillHole
 extends Node3D
 
-const Geo = preload("res://scripts/geometry.gd")
-const Layout = preload("res://scripts/dozer_layout.gd")
 var filled := false
 var plug: Node3D
 var star: Node3D
@@ -12,8 +11,8 @@ func _ready() -> void:
 	var surface := SurfaceTool.new()
 	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
 	for i in 64:
-		var a := Vector3(cos(TAU*i/64),0,sin(TAU*i/64))*Layout.RADIUS
-		var b := Vector3(cos(TAU*(i+1)/64),0,sin(TAU*(i+1)/64))*Layout.RADIUS
+		var a := Vector3(cos(TAU*i/64),0,sin(TAU*i/64))*DozerLayout.RADIUS
+		var b := Vector3(cos(TAU*(i+1)/64),0,sin(TAU*(i+1)/64))*DozerLayout.RADIUS
 		for p in [a,b,b+Vector3.DOWN*1.9,a,b+Vector3.DOWN*1.9,a+Vector3.DOWN*1.9]: surface.add_vertex(p)
 	surface.generate_normals()
 	var wall := MeshInstance3D.new()
@@ -22,11 +21,11 @@ func _ready() -> void:
 	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	wall.material_override = mat
 	add_child(wall)
-	Geo.cylinder(self,Vector3(0,-1.85,0),Layout.RADIUS,.1,Geo.material(Color("705b49")),-1,64)
+	Geo.cylinder(self,Vector3(0,-1.85,0),DozerLayout.RADIUS,.1,Geo.material(Color("705b49")),-1,64)
 	var rim := MeshInstance3D.new()
 	var torus := TorusMesh.new()
-	torus.inner_radius = Layout.RADIUS-.02
-	torus.outer_radius = Layout.RADIUS+.16
+	torus.inner_radius = DozerLayout.RADIUS-.02
+	torus.outer_radius = DozerLayout.RADIUS+.16
 	torus.rings = 48
 	torus.ring_segments = 8
 	rim.mesh = torus
@@ -37,24 +36,38 @@ func _ready() -> void:
 	badge = Geo.cylinder(self,Vector3(0,1.2,-2.06),.66,.06,Geo.material(Color("fff8e5")),-1,32)
 	badge.rotation.x = PI/2
 	star = Geo.star(self,Vector3(0,1.2,-2.0),.46,Geo.material(Color("c8c6af")))
+	# A sensor near the bottom reports a boulder that has really fallen in.
+	var sensor := Area3D.new()
+	sensor.collision_layer = 0
+	sensor.collision_mask = 4
+	var shape := CollisionShape3D.new()
+	var cylinder := CylinderShape3D.new()
+	cylinder.radius = 1.25
+	cylinder.height = .6
+	shape.shape = cylinder
+	shape.position.y = -1.6
+	sensor.add_child(shape)
+	add_child(sensor)
+	sensor.body_entered.connect(_on_body_entered)
 
-func fill(rock: RigidBody3D) -> void:
-	if filled: return
+func _on_body_entered(body: Node3D) -> void:
+	var rock := body as PushBoulder
+	if rock == null or filled or rock.completed: return
+	# Physics state cannot change inside a physics callback; finish on the next idle frame.
+	fill.call_deferred(rock)
+
+func fill(rock: PushBoulder) -> void:
+	if filled or rock.completed: return
 	filled = true
-	rock.completed = true
-	rock.freeze = true
-	rock.collision_layer = 0
-	rock.collision_mask = 0
-	rock.linear_velocity = Vector3.ZERO
-	rock.angular_velocity = Vector3.ZERO
+	rock.complete()
 	rock.global_position = global_position+Vector3(0,-.48,0)
-	plug = Geo.cylinder(self,Vector3(0,-.23,0),Layout.RADIUS,.3,Geo.material(Color("9bc7a3")),-1,64)
+	plug = Geo.cylinder(self,Vector3(0,-.23,0),DozerLayout.RADIUS,.3,Geo.material(Color("9bc7a3")),-1,64)
 	var body := StaticBody3D.new()
 	body.collision_layer = 8
 	body.collision_mask = 4
 	var shape := CollisionShape3D.new()
 	var cylinder := CylinderShape3D.new()
-	cylinder.radius = Layout.RADIUS
+	cylinder.radius = DozerLayout.RADIUS
 	cylinder.height = .3
 	shape.shape = cylinder
 	plug.add_child(body)

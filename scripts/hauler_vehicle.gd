@@ -1,21 +1,18 @@
-extends CharacterBody3D
+class_name HaulerVehicle
+extends Vehicle
 
-const Model = preload("res://scripts/hauler_model.gd")
-const Play = preload("res://scripts/playground.gd")
-var kind := "loader"
-var model
-var active := false
-var loaded := false
-var busy := false
-var moving := false
-var drive_speed := 0.0
-var touch_direction := Vector2.ZERO
-var waypoints: Array[Vector3] = []
-var final_yaw := 0.0
-var navigating := false
 signal action_requested
 signal arrived
 signal manual_takeover
+
+const WHEEL_RADIUS := .64
+var kind := "loader"
+var model: HaulerModel
+var active := false
+var loaded := false
+var waypoints: Array[Vector3] = []
+var final_yaw := 0.0
+var navigating := false
 
 func _ready() -> void:
 	collision_layer = 2
@@ -26,15 +23,14 @@ func _ready() -> void:
 	shape.shape = bounds
 	shape.position.y = .7
 	add_child(shape)
-	model = Model.new()
+	model = HaulerModel.new()
 	model.kind = kind
 	add_child(model)
 
 func _physics_process(delta: float) -> void:
 	var travel := Vector3.ZERO
 	if active and not busy:
-		var keys := Input.get_vector("left","right","up","down")
-		var direction := keys if keys.length()>.05 else touch_direction
+		var direction := _input_direction()
 		if direction.length()>.05:
 			if navigating:
 				cancel_movement(false)
@@ -53,16 +49,12 @@ func _physics_process(delta: float) -> void:
 					arrived.emit()
 	if travel.length()>.01:
 		rotation.y = lerp_angle(rotation.y,atan2(-travel.x,-travel.z),1-exp(-delta*10))
-	velocity = Vector3(travel.x*3.8,-1 if is_on_floor() else velocity.y-delta*9.8,travel.z*3.8)
-	move_and_slide()
-	position.x = clampf(position.x,-Play.DRIVE_X,Play.DRIVE_X)
-	position.z = clampf(position.z,-Play.DRIVE_Z,Play.DRIVE_Z)
+	_drive(travel,3.8,delta)
 	if position.y< -2: position.y = 0
-	drive_speed = Vector2(velocity.x,velocity.z).length()
 	moving = travel.length()>.05
 	var forward_speed := Vector2(velocity.x,velocity.z).dot(Vector2(-global_basis.z.x,-global_basis.z.z))
 	for wheel in model.wheels:
-		wheel.rotate_object_local(Vector3.UP,-forward_speed/.64*delta)
+		wheel.rotate_object_local(Vector3.UP,-forward_speed/WHEEL_RADIUS*delta)
 	if active and not busy and Input.is_action_just_pressed("scoop"): action()
 
 func has_load() -> bool:
@@ -72,20 +64,18 @@ func action() -> void:
 	if not busy: action_requested.emit()
 
 func go_to(point: Vector3) -> void:
-	navigate([Vector3(clampf(point.x,-Play.DRIVE_X,Play.DRIVE_X),0,clampf(point.z,-Play.DRIVE_Z,Play.DRIVE_Z))],rotation.y)
+	navigate([Vehicle.clamp_to_yard(point)],rotation.y)
 
 func navigate(points: Array, yaw: float) -> void:
 	cancel_movement()
-	for point in points: waypoints.append(point)
+	waypoints.assign(points)
 	final_yaw = yaw
 	navigating = true
 
 func cancel_movement(release_touch: bool = true) -> void:
 	waypoints.clear()
 	navigating = false
-	velocity = Vector3.ZERO
-	moving = false
-	if release_touch: touch_direction = Vector2.ZERO
+	super(release_touch)
 
 func reset_vehicle() -> void:
 	cancel_movement()

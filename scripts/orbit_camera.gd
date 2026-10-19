@@ -1,3 +1,4 @@
+class_name FixedCamera
 extends Camera3D
 
 # A fixed view: screen directions always match the movement buttons.

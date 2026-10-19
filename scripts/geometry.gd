@@ -1,4 +1,4 @@
-class_name YardGeometry
+class_name Geo
 extends RefCounted
 
 static func material(color: Color, roughness: float = 0.85, metal: float = 0.0) -> StandardMaterial3D:

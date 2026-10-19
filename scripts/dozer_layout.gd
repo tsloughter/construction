@@ -1,3 +1,4 @@
+class_name DozerLayout
 extends RefCounted
 
 const START := Vector3(-6,0,4.9)

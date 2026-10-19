@@ -27,6 +27,53 @@ lights_and_shadows/directional_shadow/size=2048
 common/physics_ticks_per_second=60
 3d/default_gravity=9.8
 
+[input]
+
+up={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"physical_keycode":4194320), Object(InputEventKey,"physical_keycode":87)]
+}
+down={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"physical_keycode":4194322), Object(InputEventKey,"physical_keycode":83)]
+}
+left={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"physical_keycode":4194319), Object(InputEventKey,"physical_keycode":65)]
+}
+right={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"physical_keycode":4194321), Object(InputEventKey,"physical_keycode":68)]
+}
+scoop={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"physical_keycode":32)]
+}
+pause={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"physical_keycode":4194305)]
+}
+reset={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"physical_keycode":82)]
+}
+mute={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"physical_keycode":77)]
+}
+menu_excavator={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"physical_keycode":49)]
+}
+menu_bulldozer={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"physical_keycode":50)]
+}
+menu_loader={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"physical_keycode":51)]
+}
+
 [layer_names]
 3d_physics/layer_1="Yard"
 3d_physics/layer_2="Vehicle"
@@ -36,5 +83,3 @@ common/physics_ticks_per_second=60
 [editor]
 import/blender/enabled=false
 
-[input_devices]
-pointing/emulate_mouse_from_touch=false
