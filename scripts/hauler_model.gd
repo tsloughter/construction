@@ -7,7 +7,6 @@ var arm: Node3D
 var bucket: Node3D
 var bed: Node3D
 var cargo: Node3D
-var wheels: Array[Node3D] = []
 # Materials are shared by every loader, truck and preview card.
 static var yellow := Geo.material(Color("efbc55"))
 static var orange := Geo.material(Color("e99a50"))
@@ -17,18 +16,28 @@ static var glass := Geo.material(Color("a6dce7"))
 static var dirt := Geo.material(Color("a97950"))
 static var cream := Geo.material(Color("fffaed"))
 static var lamp := Geo.material(Color("fff1b8"))
+static var tread := Geo.material(Color("46618f"))
 
 func _ready() -> void:
 	_block(self,Vector3(0,.7,0),Vector3(2.15,.48,3.35),dark)
 	for x in [-1.17,1.17]:
 		for z in ([-1.05,1.05] if kind == "loader" else [-1.3,.7,1.6]):
-			var wheel := Geo.cylinder(self,Vector3(x,.65,z),.64,.42,dark,-1,24)
-			wheel.rotation.z = PI/2
-			wheels.append(wheel)
-			var hub := Geo.cylinder(self,Vector3(x+signf(x)*.23,.65,z),.30,.035,yellow,-1,24)
-			hub.rotation.z = PI/2
+			_wheel(Vector3(x,.65,z),signf(x))
 	if kind == "loader": _loader()
 	else: _truck()
+
+# The rim is the "Wheel" node the vehicle spins; the hub and tread nubs ride on it.
+func _wheel(at: Vector3, side: float) -> void:
+	var rim := Geo.cylinder(self,at,.64,.42,dark,-1,24)
+	rim.name = "Wheel"
+	rim.rotation.z = PI/2
+	var hub := Geo.cylinder(rim,Vector3(0,-side*.23,0),.30,.035,yellow,-1,24)
+	hub.name = "Hub"
+	for i in 8:
+		var t := TAU*i/8
+		var nub := _block(rim,Vector3(cos(t)*.64,0,sin(t)*.64),Vector3(.17,.30,.24),tread)
+		nub.name = "Tread"
+		nub.rotation.y = -t
 
 func _block(parent: Node3D, at: Vector3, dimensions: Vector3, mat: Material) -> MeshInstance3D:
 	var part := MeshInstance3D.new()

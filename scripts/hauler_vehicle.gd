@@ -26,6 +26,7 @@ func _ready() -> void:
 	model = HaulerModel.new()
 	model.kind = kind
 	add_child(model)
+	_collect_wheels(model)
 
 func _physics_process(delta: float) -> void:
 	var travel := Vector3.ZERO
@@ -52,9 +53,7 @@ func _physics_process(delta: float) -> void:
 	_drive(travel,3.8,delta)
 	if position.y< -2: position.y = 0
 	moving = travel.length()>.05
-	var forward_speed := Vector2(velocity.x,velocity.z).dot(Vector2(-global_basis.z.x,-global_basis.z.z))
-	for wheel in model.wheels:
-		wheel.rotate_object_local(Vector3.UP,-forward_speed/WHEEL_RADIUS*delta)
+	_spin_wheels(WHEEL_RADIUS,delta)
 	if active and not busy and Input.is_action_just_pressed("scoop"): action()
 
 func has_load() -> bool:

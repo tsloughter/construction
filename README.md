@@ -112,7 +112,8 @@ The launcher detects native Godot or the installed Godot Flatpak. Built and test
 | `art/boulder.blend` | Editable soft pebble |
 | `art/site_props.blend` | Shared Blender block with rounded edges for site props |
 | `tools/build_site_props.py` | Regenerates the rounded site block |
-| `tools/build_assets.py` | Blender asset generator |
+| `tools/toy_parts.py` | Shared Blender helpers: toy materials, rounded parts, wheels with tread, and part merging |
+| `tools/build_assets.py` | Blender generator for the excavator and pebble |
 | `tools/build_audio.py` | Original sound generator |
 | `tests/test_base.gd` | Shared test harness: checks, frame waits, and real mouse, touch, and keyboard dispatch |
 | `tests/gameplay_test.gd`, `tests/bulldozer_test.gd`, `tests/loader_test.gd`, `tests/menu_test.gd` | Excavator, pushing physics, hauling, and game-switching integration checks |

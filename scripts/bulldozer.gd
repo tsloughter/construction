@@ -9,6 +9,7 @@ const ASSIST_LIMIT := 45.0
 # Turning is capped so the broad blade sweeps gently through a nearby rock
 # instead of flinging it across the yard.
 const TURN_RATE := 4.0
+const WHEEL_RADIUS := .34
 var mode := Mode.IDLE
 var destination := Vector3.ZERO
 var chosen: PushBoulder
@@ -25,6 +26,7 @@ func _ready() -> void:
 	_add_shape(Vector3(3.85,.9,.35),Vector3(0,.55,-2.05))
 	model = preload("res://assets/models/bulldozer.glb").instantiate()
 	add_child(model)
+	_collect_wheels(model)
 	marker = Geo.ring(self,.9,Color("fff3c6"),28)
 	marker.top_level = true
 	marker.visible = false
@@ -92,6 +94,7 @@ func _physics_process(delta: float) -> void:
 			if push.length()>.01 and push.dot(travel)>.1:
 				rock.apply_central_impulse(push.normalized()*rock.mass*delta*12)
 	moving = travel.length()>.05
+	_spin_wheels(WHEEL_RADIUS,delta)
 	marker.visible = is_instance_valid(chosen) and not chosen.completed
 	if marker.visible: marker.global_position = Vector3(chosen.position.x,.06,chosen.position.z)
 	if Input.is_action_just_pressed("scoop"): action()

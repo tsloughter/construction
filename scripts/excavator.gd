@@ -6,6 +6,7 @@ signal dropped
 
 enum Mode { IDLE, GO, FACE, LOWER, CURL, LIFT, LOWER_DROP, TIP, FINISH_DROP }
 const START_YAW := -.48
+const WHEEL_RADIUS := .35
 var mode := Mode.IDLE
 var model: Node3D
 var upper: Node3D
@@ -29,7 +30,6 @@ var desired_yaw := 0.0
 var phase_time := 0.0
 var marker: Node3D
 var move_marker: Node3D
-var wheels: Array[Node3D] = []
 
 func _ready() -> void:
 	collision_layer = 2
@@ -47,7 +47,7 @@ func _ready() -> void:
 	stick = model.find_child("Stick",true,false)
 	bucket = model.find_child("Bucket",true,false)
 	socket = model.find_child("CarrySocket",true,false)
-	_cache_wheels(model)
+	_collect_wheels(model)
 	# Ground markers are top-level children: placed in world space, freed with the digger.
 	marker = Geo.ring(self,1.08,Color("618f91"),32)
 	marker.top_level = true
@@ -82,8 +82,7 @@ func _physics_process(delta: float) -> void:
 		rotation.y = lerp_angle(rotation.y,desired_yaw,1-exp(-delta*8))
 	_drive(travel,3.0,delta)
 	moving = drive_speed > .05
-	for wheel in wheels:
-		wheel.rotate_object_local(Vector3.UP,drive_speed*delta*1.3)
+	_spin_wheels(WHEEL_RADIUS,delta)
 	phase_time += delta
 	_step_job(delta)
 	lift = move_toward(lift,target_lift,delta*2.4)
@@ -266,8 +265,3 @@ func reset_vehicle() -> void:
 	target_curl = curl
 	move_marker.visible = false
 	_solve_arm()
-
-func _cache_wheels(node: Node) -> void:
-	if "wheel" in String(node.name) and node is Node3D:
-		wheels.append(node)
-	for child in node.get_children(): _cache_wheels(child)
