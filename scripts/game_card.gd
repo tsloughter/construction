@@ -8,7 +8,12 @@ const BULLDOZER_SCENE := preload("res://assets/models/bulldozer.glb")
 const TITLES := {"excavator":"EXCAVATOR","bulldozer":"BULLDOZER","loader":"LOADER + TRUCK"}
 const TAGLINES := {"excavator":"Scoop & carry","bulldozer":"Push & fill","loader":"Load & haul"}
 var kind := "excavator"
-var selected := false
+var selected := false:
+	set(value):
+		if selected == value: return
+		selected = value
+		queue_redraw()
+var _card := StyleBoxFlat.new()
 
 func _ready() -> void:
 	super()
@@ -23,7 +28,8 @@ func _ready() -> void:
 	viewport.msaa_3d = Viewport.MSAA_2X
 	viewport.own_world_3d = true
 	viewport.gui_disable_input = true
-	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	# The preview never moves, so render it once instead of three shadowed worlds a frame.
+	viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
 	container.add_child(viewport)
 	var world := Node3D.new()
 	viewport.add_child(world)
@@ -68,7 +74,7 @@ func _ready() -> void:
 	cam.current = true
 
 func _draw() -> void:
-	var style := StyleBoxFlat.new()
+	var style := _card
 	style.set_corner_radius_all(36)
 	style.bg_color = Color("88afa6")
 	draw_style_box(style,Rect2(Vector2(0,9),size))

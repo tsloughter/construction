@@ -8,7 +8,10 @@ const FONT = preload("res://assets/fonts/Roboto-Regular.ttf")
 const INK := Color("35506a")
 const KINDS := ["excavator","bulldozer","loader"]
 var cards: Array[GameCard] = []
-var selected := 0
+var selected := 0:
+	set(value):
+		selected = value
+		for i in cards.size(): cards[i].selected = i == selected
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -22,11 +25,7 @@ func _ready() -> void:
 		card.mouse_entered.connect(func(): selected = i)
 		add_child(card)
 		cards.append(card)
-
-func _process(_delta: float) -> void:
-	for i in cards.size():
-		cards[i].selected = i == selected
-		cards[i].queue_redraw()
+	selected = 0
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("left"): selected = maxi(0,selected-1)

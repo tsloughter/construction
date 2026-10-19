@@ -11,6 +11,8 @@ var settled_in_garden := false
 var settle_time := 0.0
 var spawn_point := Vector3.ZERO
 var rock_id := 0
+# The convex hull is built from the pebble mesh once and shared by every rock.
+static var _hull: Shape3D
 
 func _ready() -> void:
 	spawn_point = global_position
@@ -31,8 +33,9 @@ func _ready() -> void:
 	mat.albedo_color = Playground.COLORS[rock_id]
 	mat.roughness = .9
 	mesh_instance.material_override = mat
+	if _hull == null: _hull = mesh_instance.mesh.create_convex_shape()
 	var collider := CollisionShape3D.new()
-	collider.shape = mesh_instance.mesh.create_convex_shape()
+	collider.shape = _hull
 	add_child(collider)
 	add_to_group("boulders")
 

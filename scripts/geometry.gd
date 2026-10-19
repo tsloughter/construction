@@ -1,6 +1,23 @@
 class_name Geo
 extends RefCounted
 
+static var _site_block: Mesh
+
+# The rounded site block from the shared GLB, loaded once for every yard and vehicle.
+static func site_block() -> Mesh:
+	if _site_block == null:
+		var source := preload("res://assets/models/site_block.glb").instantiate()
+		_site_block = _first_mesh(source)
+		source.free()
+	return _site_block
+
+static func _first_mesh(node: Node) -> Mesh:
+	if node is MeshInstance3D: return node.mesh
+	for child in node.get_children():
+		var mesh := _first_mesh(child)
+		if mesh != null: return mesh
+	return null
+
 static func material(color: Color, roughness: float = 0.85, metal: float = 0.0) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
 	m.albedo_color = color
@@ -77,13 +94,17 @@ static func star(parent: Node3D, pos: Vector3, radius: float, mat: Material) -> 
 	instance.position = pos
 	return instance
 
-static func ring(parent: Node3D, radius: float, color: Color, segments: int = 40) -> Node3D:
-	var node := Node3D.new()
-	parent.add_child(node)
+# A flat ground ring: one torus mesh and one draw call, not a node per segment.
+static func ring(parent: Node3D, radius: float, color: Color, segments: int = 40) -> MeshInstance3D:
+	var mesh := TorusMesh.new()
+	mesh.inner_radius = radius - .02
+	mesh.outer_radius = radius + .02
+	mesh.rings = segments
+	mesh.ring_segments = 6
 	var m := material(color)
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	for i in segments:
-		var a := TAU * i / segments
-		var b := TAU * (i + 0.7) / segments
-		beam(node, Vector3(cos(a)*radius,0,sin(a)*radius), Vector3(cos(b)*radius,0,sin(b)*radius), .035, m)
+	var node := MeshInstance3D.new()
+	node.mesh = mesh
+	node.material_override = m
+	parent.add_child(node)
 	return node

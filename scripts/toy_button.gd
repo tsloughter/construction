@@ -6,10 +6,24 @@ extends BaseButton
 signal held_changed(held: bool)
 
 const INK := Color("35506a")
-var icon := "up"
-var color := Color.WHITE
-var pebble_color := Color("cd9feb")
+var icon := "up":
+	set(value):
+		if icon == value: return
+		icon = value
+		queue_redraw()
+var color := Color.WHITE:
+	set(value):
+		if color == value: return
+		color = value
+		queue_redraw()
+var pebble_color := Color("cd9feb"):
+	set(value):
+		if pebble_color == value: return
+		pebble_color = value
+		queue_redraw()
 var down := false
+var _face := StyleBoxFlat.new()
+var _pill_style := StyleBoxFlat.new()
 
 func _ready() -> void:
 	action_mode = BaseButton.ACTION_MODE_BUTTON_PRESS
@@ -29,7 +43,7 @@ func _set_down(value: bool) -> void:
 
 func _draw() -> void:
 	var face := Rect2(Vector2(0,5 if down else 0),size-Vector2(0,7))
-	var style := StyleBoxFlat.new()
+	var style := _face
 	style.set_corner_radius_all(int(minf(size.x,size.y)*.27))
 	style.bg_color = color.darkened(.17)
 	draw_style_box(style,Rect2(Vector2(0,7),size-Vector2(0,7)))
@@ -80,7 +94,6 @@ func _draw() -> void:
 		else: draw_line(center+Vector2(.5,-.5)*unit,center+Vector2(1,.5)*unit,INK,4,true)
 
 func _pill(c: Color, radius: int) -> StyleBoxFlat:
-	var s := StyleBoxFlat.new()
-	s.bg_color = c
-	s.set_corner_radius_all(radius)
-	return s
+	_pill_style.bg_color = c
+	_pill_style.set_corner_radius_all(radius)
+	return _pill_style

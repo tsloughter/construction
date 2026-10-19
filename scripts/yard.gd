@@ -4,6 +4,9 @@ extends Node3D
 var goal_star: MeshInstance3D
 var block_mesh: Mesh
 var time := 0.0
+# Blocks are gathered per material and drawn as one MultiMesh each instead of
+# one node and one draw call per block.
+var _batches: Dictionary = {}
 var dirt := Geo.material(Color("cbb388"))
 var pale := Geo.material(Color("f5edd4"))
 var slate := Geo.material(Color("546b7d"))
@@ -14,11 +17,13 @@ var teal := Geo.material(Color("65afa9"))
 var blue := Geo.material(Color("91c4d6"))
 var concrete := Geo.material(Color("b2c0ba"))
 var timber := Geo.material(Color("bf9267"))
+var sand := Geo.material(Color("bfa477"))
+var trunk := Geo.material(Color("be8e69"))
+var leaf := Geo.material(Color("59ad8d"))
+var leaf_light := Geo.material(Color("83c59a"))
 
 func _ready() -> void:
-	var block_source := preload("res://assets/models/site_block.glb").instantiate()
-	block_mesh = _find_mesh(block_source)
-	block_source.free()
+	block_mesh = Geo.site_block()
 	_lighting()
 	_ground()
 	_delivery_bay()
@@ -33,22 +38,36 @@ func _ready() -> void:
 	_tree(Vector3(18.5,0,7),.9)
 	_cloud(Vector3(-10,7,-24),pale)
 	_cloud(Vector3(13,8,-26),pale)
+	_flush_blocks()
 
-func _find_mesh(node: Node) -> Mesh:
-	if node is MeshInstance3D: return node.mesh
-	for child in node.get_children():
-		var mesh := _find_mesh(child)
-		if mesh != null: return mesh
-	return null
-
-func _block(pos: Vector3, dimensions: Vector3, mat: Material) -> MeshInstance3D:
+# Without a parent the block joins its material's batch; with one it is a real node.
+func _block(pos: Vector3, dimensions: Vector3, mat: Material, parent: Node3D = null, roll: float = 0.0) -> MeshInstance3D:
+	if parent == null:
+		if not _batches.has(mat): _batches[mat] = []
+		_batches[mat].append(Transform3D(Basis.from_euler(Vector3(0,0,roll))*Basis.from_scale(dimensions),pos))
+		return null
 	var instance := MeshInstance3D.new()
 	instance.mesh = block_mesh
 	instance.material_override = mat
-	add_child(instance)
+	parent.add_child(instance)
 	instance.position = pos
+	instance.rotation.z = roll
 	instance.scale = dimensions
 	return instance
+
+func _flush_blocks() -> void:
+	for mat: Material in _batches:
+		var transforms: Array = _batches[mat]
+		var multi := MultiMesh.new()
+		multi.transform_format = MultiMesh.TRANSFORM_3D
+		multi.mesh = block_mesh
+		multi.instance_count = transforms.size()
+		for i in transforms.size(): multi.set_instance_transform(i,transforms[i])
+		var instance := MultiMeshInstance3D.new()
+		instance.multimesh = multi
+		instance.material_override = mat
+		add_child(instance)
+	_batches.clear()
 
 func _ground() -> void:
 	# The work area is level with the surrounding land, with an open road entrance.
@@ -154,33 +173,31 @@ func _building_frame(p: Vector3) -> void:
 	_block(p+Vector3(-2.65,.55,0),Vector3(.26,.9,3.2),orange)
 
 func _crane(p: Vector3) -> void:
-	var first_piece := get_child_count()
-	_block(p+Vector3(0,.25,0),Vector3(2.6,.5,2.1),slate)
-	for x in [-.38,.38]:
-		_block(p+Vector3(x,3.6,0),Vector3(.20,7.2,.20),yellow)
-	for i in 8:
-		var y := .4+i*.85
-		_block(p+Vector3(0,y,0),Vector3(.85,.14,.14),orange)
-		Geo.beam(self,p+Vector3(-.35,y,0),p+Vector3(.35,y+.8,0),.095,orange)
-	for h in [6.8,7.55]:
-		_block(p+Vector3(1.8,h,0),Vector3(10,.19,.4),yellow)
-	for i in 10:
-		var x := -3.0+i
-		Geo.beam(self,p+Vector3(x,6.8,0),p+Vector3(x+.9,7.55,0),.11,orange)
-	_block(p+Vector3(-2.9,6.62,0),Vector3(1.4,.9,1.2),blue)
-	_block(p+Vector3(.6,6.45,.2),Vector3(1.2,.9,1.05),teal)
-	_block(p+Vector3(.6,6.45,.76),Vector3(.8,.5,.06),blue)
-	Geo.beam(self,p+Vector3(5.8,6.8,0),p+Vector3(5.8,3.9,0),.055,navy)
-	Geo.cylinder(self,p+Vector3(5.8,3.72,0),.19,.35,orange)
-	# A short rounded hook: background detail, not another control to learn.
-	var hook := Geo.cylinder(self,p+Vector3(5.8,3.40,0),.23,.12,navy,-1,16)
-	hook.rotation.x = PI/2
-	# Compress its height to keep the whole toy crane visible in the fixed view.
-	var pieces := get_children().slice(first_piece)
+	# Built under its own node so the whole toy crane can be compressed in height
+	# afterwards to stay visible in the fixed view.
 	var crane := Node3D.new()
 	crane.name = "ToyCrane"
 	add_child(crane)
-	for piece in pieces: piece.reparent(crane)
+	_block(p+Vector3(0,.25,0),Vector3(2.6,.5,2.1),slate,crane)
+	for x in [-.38,.38]:
+		_block(p+Vector3(x,3.6,0),Vector3(.20,7.2,.20),yellow,crane)
+	for i in 8:
+		var y := .4+i*.85
+		_block(p+Vector3(0,y,0),Vector3(.85,.14,.14),orange,crane)
+		Geo.beam(crane,p+Vector3(-.35,y,0),p+Vector3(.35,y+.8,0),.095,orange)
+	for h in [6.8,7.55]:
+		_block(p+Vector3(1.8,h,0),Vector3(10,.19,.4),yellow,crane)
+	for i in 10:
+		var x := -3.0+i
+		Geo.beam(crane,p+Vector3(x,6.8,0),p+Vector3(x+.9,7.55,0),.11,orange)
+	_block(p+Vector3(-2.9,6.62,0),Vector3(1.4,.9,1.2),blue,crane)
+	_block(p+Vector3(.6,6.45,.2),Vector3(1.2,.9,1.05),teal,crane)
+	_block(p+Vector3(.6,6.45,.76),Vector3(.8,.5,.06),blue,crane)
+	Geo.beam(crane,p+Vector3(5.8,6.8,0),p+Vector3(5.8,3.9,0),.055,navy)
+	Geo.cylinder(crane,p+Vector3(5.8,3.72,0),.19,.35,orange)
+	# A short rounded hook: background detail, not another control to learn.
+	var hook := Geo.cylinder(crane,p+Vector3(5.8,3.40,0),.23,.12,navy,-1,16)
+	hook.rotation.x = PI/2
 	crane.scale.y = .72
 
 func _materials() -> void:
@@ -204,7 +221,7 @@ func _materials() -> void:
 				_block(Vector3(13.12+x*.67,.32+y*.30,-4.4+z*.78),Vector3(.59,.25,.65),orange)
 	# Dirt heaps outside the driving space have the same smooth toy silhouette.
 	for p in [Vector3(-13.4,0,3.5),Vector3(13.6,0,6.5)]:
-		_ball(p,Vector3(1.8,.9,1.3),Geo.material(Color("bfa477")))
+		_ball(p,Vector3(1.8,.9,1.3),sand)
 		_ball(p+Vector3(.8,.1,.1),Vector3(1.0,.65,.9),dirt)
 	# A pair of familiar construction drums.
 	for x in [-14.1,-12.9]:
@@ -229,8 +246,7 @@ func _barrier(p: Vector3) -> void:
 		_block(p+Vector3(x,.07,0),Vector3(.32,.14,.9),slate)
 	_block(p+Vector3(0,.86,0),Vector3(3.35,.52,.22),pale)
 	for i in 5:
-		var stripe := _block(p+Vector3(-1.26+i*.63,.86,.125),Vector3(.28,.51,.035),orange)
-		stripe.rotation.z = -.35
+		_block(p+Vector3(-1.26+i*.63,.86,.125),Vector3(.28,.51,.035),orange,null,-.35)
 func _lighting() -> void:
 	var env := WorldEnvironment.new()
 	var settings := Environment.new()
@@ -258,12 +274,9 @@ func _process(delta: float) -> void:
 	goal_star.rotation.z = sin(time*1.2)*.10
 
 func _tree(p: Vector3, scale_factor: float) -> void:
-	var trunk := Geo.material(Color("be8e69"))
-	var leaf := Geo.material(Color("59ad8d"))
-	var light := Geo.material(Color("83c59a"))
 	Geo.cylinder(self,p+Vector3(0,1,0)*scale_factor,.28*scale_factor,2.8*scale_factor,trunk)
 	_ball(p+Vector3(0,3.1,0)*scale_factor,Vector3(1.6,1.8,1.6)*scale_factor,leaf)
-	_ball(p+Vector3(-.8,3.3,.2)*scale_factor,Vector3(1.2,1.3,1.2)*scale_factor,light)
+	_ball(p+Vector3(-.8,3.3,.2)*scale_factor,Vector3(1.2,1.3,1.2)*scale_factor,leaf_light)
 
 func _cloud(p: Vector3, mat: Material) -> void:
 	for i in 4:

@@ -8,18 +8,17 @@ var bucket: Node3D
 var bed: Node3D
 var cargo: Node3D
 var wheels: Array[Node3D] = []
-var block_mesh: Mesh
-var yellow := Geo.material(Color("efbc55"))
-var orange := Geo.material(Color("e99a50"))
-var teal := Geo.material(Color("65afa9"))
-var dark := Geo.material(Color("354e68"))
-var glass := Geo.material(Color("a6dce7"))
-var dirt := Geo.material(Color("a97950"))
+# Materials are shared by every loader, truck and preview card.
+static var yellow := Geo.material(Color("efbc55"))
+static var orange := Geo.material(Color("e99a50"))
+static var teal := Geo.material(Color("65afa9"))
+static var dark := Geo.material(Color("354e68"))
+static var glass := Geo.material(Color("a6dce7"))
+static var dirt := Geo.material(Color("a97950"))
+static var cream := Geo.material(Color("fffaed"))
+static var lamp := Geo.material(Color("fff1b8"))
 
 func _ready() -> void:
-	var source := preload("res://assets/models/site_block.glb").instantiate()
-	block_mesh = _mesh(source)
-	source.free()
 	_block(self,Vector3(0,.7,0),Vector3(2.15,.48,3.35),dark)
 	for x in [-1.17,1.17]:
 		for z in ([-1.05,1.05] if kind == "loader" else [-1.3,.7,1.6]):
@@ -31,16 +30,9 @@ func _ready() -> void:
 	if kind == "loader": _loader()
 	else: _truck()
 
-func _mesh(node: Node) -> Mesh:
-	if node is MeshInstance3D: return node.mesh
-	for child in node.get_children():
-		var result := _mesh(child)
-		if result: return result
-	return null
-
 func _block(parent: Node3D, at: Vector3, dimensions: Vector3, mat: Material) -> MeshInstance3D:
 	var part := MeshInstance3D.new()
-	part.mesh = block_mesh
+	part.mesh = Geo.site_block()
 	part.material_override = mat
 	parent.add_child(part)
 	part.position = at
@@ -57,7 +49,7 @@ func _cab(at: Vector3, color: Material) -> void:
 	for x in [-.93,.93]:
 		_block(self,at+Vector3(x,.16,0),Vector3(.08,.78,1.1),glass)
 	for x in [-.34,.34]:
-		var eye := Geo.cylinder(self,at+Vector3(x,.22,-.79),.17,.045,Geo.material(Color("fffaed")),-1,20)
+		var eye := Geo.cylinder(self,at+Vector3(x,.22,-.79),.17,.045,cream,-1,20)
 		eye.rotation.x = PI/2
 		var pupil := Geo.cylinder(self,at+Vector3(x,.21,-.82),.085,.035,dark,-1,16)
 		pupil.rotation.x = PI/2
@@ -90,7 +82,7 @@ func _truck() -> void:
 	_cab(Vector3(0,1.83,-1.35),teal)
 	_block(self,Vector3(0,1.03,-2.13),Vector3(2.3,.42,.3),teal)
 	for x in [-.78,.78]:
-		_block(self,Vector3(x,1.2,-2.31),Vector3(.35,.24,.07),Geo.material(Color("fff1b8")))
+		_block(self,Vector3(x,1.2,-2.31),Vector3(.35,.24,.07),lamp)
 	bed = Node3D.new()
 	add_child(bed)
 	bed.position = Vector3(0,1.19,1.95)
@@ -109,7 +101,6 @@ static func dirt_clumps(parent: Node3D, at: Vector3, dimensions: Vector3, count:
 	var cluster := Node3D.new()
 	parent.add_child(cluster)
 	cluster.position = at
-	var mat := Geo.material(Color("a97950"))
 	for i in count:
 		var clump := MeshInstance3D.new()
 		var mesh := SphereMesh.new()
@@ -118,7 +109,7 @@ static func dirt_clumps(parent: Node3D, at: Vector3, dimensions: Vector3, count:
 		mesh.radial_segments = 12
 		mesh.rings = 6
 		clump.mesh = mesh
-		clump.material_override = mat
+		clump.material_override = dirt
 		cluster.add_child(clump)
 		var angle := i*2.39996
 		var radius := sqrt(float(i)/count)

@@ -13,6 +13,13 @@ signal mute_requested
 
 const INK := Color("35506a")
 const CREAM := Color("fffaed")
+const GOLD := Color("efb741")
+const STAR_OFF := Color("dfdfc8")
+const ACTION_READY := Color("ffcf69")
+const ACTION_LOADED := Color("a5dbb2")
+const DIRT := Color("a97950")
+const PEBBLE := Color("cd9feb")
+const CONFETTI := [Color("efb741"),Color("e89795"),Color("7bbaa1"),Color("9da4dc")]
 const BOLD = preload("res://assets/fonts/Roboto-Bold.ttf")
 const FONT = preload("res://assets/fonts/Roboto-Regular.ttf")
 var vehicle: Vehicle
@@ -37,6 +44,8 @@ var reset_button: ToyButton
 var mute_button: ToyButton
 var muted := false
 var paused := false
+var _last_state: Array = []
+var _panel_style := StyleBoxFlat.new()
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -98,11 +107,15 @@ func _process(delta: float) -> void:
 	action_button.icon = "push" if bulldozer_mode else ("drop" if vehicle.has_load() else "scoop")
 	if loader_mode:
 		action_button.icon = hauler_icon
-		action_button.pebble_color = Color("a97950")
+		action_button.pebble_color = DIRT
 	action_button.disabled = vehicle.busy
-	action_button.color = Color("a5dbb2") if vehicle.has_load() else Color("ffcf69")
-	for button in buttons: button.queue_redraw()
-	queue_redraw()
+	action_button.color = ACTION_LOADED if vehicle.has_load() else ACTION_READY
+	# Redraw while something animates, otherwise only when the shown state changes.
+	var animating := not paused and (celebration_time>0 or vehicle.busy)
+	var state := [paused,stars,muted,load_count,hauler_title,hauler_action,hauler_hint,vehicle.has_load(),loader_mode,bulldozer_mode]
+	if animating or state != _last_state:
+		_last_state = state
+		queue_redraw()
 
 func _draw() -> void:
 	_panel(Rect2(25,26,324,104),Color(CREAM,.94),24)
@@ -111,14 +124,14 @@ func _draw() -> void:
 	# Three stars are keepsakes, not a countdown or a score to lose.
 	_panel(Rect2(976,35,257,73),CREAM,28)
 	for i in 3:
-		_star(Vector2(1023+i*80,69),23,Color("efb741") if i<stars else Color("dfdfc8"))
+		_star(Vector2(1023+i*80,69),23,GOLD if i<stars else STAR_OFF)
 	if not paused:
 		_text("MOVE",Vector2(201,777),15,INK,BOLD)
 		_text(hauler_action if loader_mode else ("PUSH" if bulldozer_mode else ("DROP" if vehicle.has_load() else "SCOOP")),Vector2(1255,713),23,INK,BOLD)
 		_panel(Rect2(410,805,620,70),CREAM,26)
 		_text(hauler_hint if loader_mode else ("Push rocks into the holes!" if bulldozer_mode else "Tap a rock. Tap the star."),Vector2(540 if loader_mode else 558,834),20 if loader_mode else 23,INK,BOLD)
 		_text("Drive with arrows. Tap a rock for help." if bulldozer_mode else "Or use the arrow keys + Space",Vector2(586,859),15,INK)
-		draw_circle(Vector2(450,839),15,Color("a97950") if loader_mode else Color("cd9feb"))
+		draw_circle(Vector2(450,839),15,DIRT if loader_mode else PEBBLE)
 		draw_line(Vector2(475,839),Vector2(497,839),INK,3,true)
 		draw_line(Vector2(488,831),Vector2(497,839),INK,3,true)
 		draw_line(Vector2(488,847),Vector2(497,839),INK,3,true)
@@ -135,7 +148,7 @@ func _draw() -> void:
 			for i in 24:
 				var x := 580+fmod(i*91.0,280)+sin(i*2.1)*age*35
 				var y := 154+age*80+i%4*16
-				var c := [Color("efb741"),Color("e89795"),Color("7bbaa1"),Color("9da4dc")][i%4] as Color
+				var c := CONFETTI[i%4] as Color
 				draw_circle(Vector2(x,y),4,Color(c,alpha))
 	if paused:
 		draw_rect(Rect2(0,0,1440,900),Color("35506a88"))
@@ -154,10 +167,9 @@ func _star(center: Vector2, radius: float, color: Color) -> void:
 	draw_colored_polygon(points,color)
 
 func _panel(rect: Rect2, color: Color, radius: int) -> void:
-	var style := StyleBoxFlat.new()
-	style.bg_color = color
-	style.set_corner_radius_all(radius)
-	draw_style_box(style,rect)
+	_panel_style.bg_color = color
+	_panel_style.set_corner_radius_all(radius)
+	draw_style_box(_panel_style,rect)
 
 func _text(text: String, pos: Vector2, font_size: int, color: Color, font: Font = FONT) -> void:
 	draw_string(font,pos,text,HORIZONTAL_ALIGNMENT_LEFT,-1,font_size,color)

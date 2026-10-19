@@ -1,6 +1,9 @@
 class_name FillHole
 extends Node3D
 
+static var STAR_WAITING := _star_material(Color("c8c6af"))
+static var STAR_DONE := _star_material(Color("f4b839"))
+static var PLUG := Geo.material(Color("9bc7a3"))
 var filled := false
 var plug: Node3D
 var star: Node3D
@@ -35,7 +38,7 @@ func _ready() -> void:
 	# One large star behind each hole provides a picture goal.
 	badge = Geo.cylinder(self,Vector3(0,1.2,-2.06),.66,.06,Geo.material(Color("fff8e5")),-1,32)
 	badge.rotation.x = PI/2
-	star = Geo.star(self,Vector3(0,1.2,-2.0),.46,Geo.material(Color("c8c6af")))
+	star = Geo.star(self,Vector3(0,1.2,-2.0),.46,STAR_WAITING)
 	# A sensor near the bottom reports a boulder that has really fallen in.
 	var sensor := Area3D.new()
 	sensor.collision_layer = 0
@@ -61,7 +64,7 @@ func fill(rock: PushBoulder) -> void:
 	filled = true
 	rock.complete()
 	rock.global_position = global_position+Vector3(0,-.48,0)
-	plug = Geo.cylinder(self,Vector3(0,-.23,0),DozerLayout.RADIUS,.3,Geo.material(Color("9bc7a3")),-1,64)
+	plug = Geo.cylinder(self,Vector3(0,-.23,0),DozerLayout.RADIUS,.3,PLUG,-1,64)
 	var body := StaticBody3D.new()
 	body.collision_layer = 8
 	body.collision_mask = 4
@@ -72,7 +75,7 @@ func fill(rock: PushBoulder) -> void:
 	shape.shape = cylinder
 	plug.add_child(body)
 	body.add_child(shape)
-	star.material_override = Geo.material(Color("f4b839"))
+	star.material_override = STAR_DONE
 	star.scale = Vector3.ONE*1.15
 
 func reset_hole() -> void:
@@ -81,4 +84,9 @@ func reset_hole() -> void:
 		remove_child(plug)
 		plug.queue_free()
 	star.scale = Vector3.ONE
-	star.material_override = Geo.material(Color("c8c6af"))
+	star.material_override = STAR_WAITING
+
+static func _star_material(color: Color) -> StandardMaterial3D:
+	var m := Geo.material(color)
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	return m
